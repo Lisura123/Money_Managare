@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-gray-900 font-sans;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body {
+      @apply bg-navy-900 text-gray-100;
+    }
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer text-sm font-medium;
+  }
+
+  .sidebar-nav-item.active {
+    @apply text-white bg-teal/20 border-l-4 border-teal pl-3;
+  }
+
+  .btn-primary {
+    @apply bg-navy text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-navy-light transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  .btn-accent {
+    @apply bg-teal text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-teal-hover transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  .btn-outline {
+    @apply border border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  .btn-danger {
+    @apply bg-error text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-red-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  .form-input {
+    @apply w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-navy focus:outline-none focus:ring-2 focus:ring-teal focus:border-transparent transition-all duration-200 text-gray-900 dark:text-gray-100 placeholder-gray-400;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5;
+  }
+
+  .form-error {
+    @apply text-xs text-error mt-1;
+  }
+
+  .card {
+    @apply bg-white dark:bg-navy rounded-card shadow-card p-5;
+  }
+
+  .page-title {
+    @apply text-xl font-heading font-semibold text-navy dark:text-white;
+  }
+
+  .table-row-hover {
+    @apply hover:bg-gray-50 dark:hover:bg-white/5 transition-colors duration-150 cursor-pointer;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .quick-action-card {
+    @apply relative rounded-xl p-5 text-white cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-card-hover active:translate-y-0 select-none overflow-hidden;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* OTP Input Boxes */
+.otp-input {
+  @apply w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/20 transition-all duration-200 bg-white dark:bg-navy dark:border-gray-600 dark:text-white;
+}
+
+/* Connection error banner */
+.connection-banner {
+  @apply fixed top-0 left-0 right-0 z-50 bg-error text-white text-sm text-center py-2.5 px-4 font-medium;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .skeleton {
+    background: linear-gradient(90deg, #1e2a45 25%, #243057 50%, #1e2a45 75%);
+    background-size: 200% 100%;
+  }
+}

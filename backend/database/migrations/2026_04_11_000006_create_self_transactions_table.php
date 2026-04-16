@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('self_transactions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('from_card_account_id')->constrained('card_accounts')->cascadeOnDelete();
+            $table->foreignId('to_card_account_id')->constrained('card_accounts')->cascadeOnDelete();
+            $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete();
+            $table->decimal('amount', 15, 2);
+            $table->text('notes')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('self_transactions');
+    }
+};

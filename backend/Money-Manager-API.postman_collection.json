@@ -1,0 +1,2807 @@
+{
+  "info": {
+    "_postman_id": "a7633b0d-53b4-47a8-9cba-b762923c82ab",
+    "name": "Money Manager API",
+    "description": "Complete API test collection for the Money Manager Laravel backend.\n\n## Run Order\nRun requests top to bottom within each folder. Tokens and IDs are saved automatically via test scripts.\n\n## Prerequisites\n1. Start XAMPP (Apache + MySQL)\n2. In the backend folder run: php artisan migrate:fresh --seed && php artisan serve\n3. API will be available at http://localhost:8000/api\n\n## Seeded Accounts\n- Admin: admin@admin.com / password\n- Staff (Downtown): staff.downtown@example.com / password\n- Staff (Northside): staff.northside@example.com / password\n- Staff (Eastside): staff.eastside@example.com / password\n\n## Collection Variables (auto-populated by test scripts)\nbase_url, token, staff_token, reset_code, card_account_id, cash_entry_id, card_entry_id, showroom_id, new_showroom_id, new_card_id, staff_id, new_staff_id, setting_id",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "_postman_id": "1c680cd2-b812-4336-96e0-24946f4bdfe6",
+      "name": "1. Auth",
+      "description": "Authentication. Run admin login first, then staff login.",
+      "item": [
+        {
+          "name": "Login (Admin)",
+          "_postman_id": "d97ed1ce-937a-42b6-9588-f166e3b1c1d8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@admin.com\",\n  \"password\": \"password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Admin token saved');",
+                  "}",
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Staff)",
+          "_postman_id": "e54b5ee2-f3e7-4259-9982-4cba556d3dac",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff.downtown@example.com\",\n  \"password\": \"password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('staff_token', json.token);",
+                  "    console.log('Staff token saved');",
+                  "}",
+                  "pm.test('Staff login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "_postman_id": "e11ea7c9-838c-4a50-bcff-3735e914b6ca",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "forgot-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@admin.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.dev_code) {",
+                  "    pm.collectionVariables.set('reset_code', json.dev_code);",
+                  "    console.log('Reset code saved:', json.dev_code);",
+                  "}",
+                  "pm.test('Reset code issued', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password",
+          "_postman_id": "090e4f9b-e29e-4710-ad8d-5768751c233e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reset-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@admin.com\",\n  \"code\": \"{{reset_code}}\",\n  \"password\": \"newpassword\",\n  \"password_confirmation\": \"newpassword\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Password reset successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "_postman_id": "eac1998f-199d-43a1-a563-ce02c83dafbb",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "logout"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "05a0ee40-0ce8-4dfb-92c4-a863ad24be6c",
+      "name": "2. Staff Operations",
+      "description": "All use Bearer {{staff_token}}. Run Get My Card Accounts first to save card_account_id.",
+      "item": [
+        {
+          "name": "Get My Card Accounts",
+          "_postman_id": "4884a06b-7829-4b79-bc14-d794ce7b9463",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/my-card-accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "my-card-accounts"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('card_account_id', String(json.data[0].id));",
+                  "    console.log('card_account_id saved:', json.data[0].id);",
+                  "}",
+                  "pm.test('Card accounts returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Cash Entry",
+          "_postman_id": "e95e108b-707e-4171-832d-962935fa78fd",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-04-11\",\n  \"cash_amount\": 75000.0,\n  \"notes\": \"Good Friday sales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('cash_entry_id', String(json.data.id));",
+                  "    console.log('cash_entry_id saved:', json.data.id);",
+                  "}",
+                  "pm.test('Cash entry created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "My Cash Entry History",
+          "_postman_id": "7adf4d9d-58ea-4c80-a4cb-edaff837da01",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries/my-history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries",
+                "my-history"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cash history returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Card Entry",
+          "_postman_id": "ae97712a-b9c6-4f49-87a5-f8bdd5694f24",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-04-11\",\n  \"card_account_id\": \"{{card_account_id}}\",\n  \"amount\": 45000.0,\n  \"notes\": \"Visa terminal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('card_entry_id', String(json.data.id));",
+                  "    console.log('card_entry_id saved:', json.data.id);",
+                  "}",
+                  "pm.test('Card entry created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "My Card Entry History",
+          "_postman_id": "5b779767-272c-4fd4-ba50-9ef1967fc5c6",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staff_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries/my-history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries",
+                "my-history"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card history returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "f423afcc-f9fe-4d92-b537-e4a62709b5a7",
+      "name": "3. Admin \u2014 Showrooms",
+      "description": "All use Bearer {{token}}. Run List Showrooms first to save showroom_id.",
+      "item": [
+        {
+          "name": "List Showrooms",
+          "_postman_id": "5de007cf-0f8a-49b5-b565-a46d116e311b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('showroom_id', String(json.data[0].id));",
+                  "    console.log('showroom_id saved:', json.data[0].id);",
+                  "}",
+                  "pm.test('Showrooms returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Showroom",
+          "_postman_id": "248d2693-0653-419b-a7d2-c43a259a7ba3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Westside Showroom\",\n  \"location\": \"45 West Ave\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('new_showroom_id', String(json.data.id));",
+                  "    console.log('new_showroom_id saved:', json.data.id);",
+                  "}",
+                  "pm.test('Showroom created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Showroom",
+          "_postman_id": "f1cbc0d6-a0d0-4a2c-b131-ab443fe565b9",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{new_showroom_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{new_showroom_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Showroom retrieved', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Showroom",
+          "_postman_id": "7f4ae2c4-de02-457e-a251-e39288eca9bd",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{new_showroom_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{new_showroom_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Westside Premium Showroom\",\n  \"location\": \"45 West Ave\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Showroom updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Showroom",
+          "_postman_id": "8798f918-8294-4e25-aece-a505b303ac3e",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{new_showroom_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{new_showroom_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Showroom deleted', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "de6a8f00-d7c1-4293-a8d3-6097c1e3a7b9",
+      "name": "4. Admin \u2014 Card Accounts",
+      "description": "All use Bearer {{token}}. Requires showroom_id from folder 3.",
+      "item": [
+        {
+          "name": "List Card Accounts",
+          "_postman_id": "d1a8ca23-4761-40bf-be51-11f62cb4115c",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{showroom_id}}/card-accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{showroom_id}}",
+                "card-accounts"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card accounts returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Card Account",
+          "_postman_id": "6f17c998-ecc5-4c99-b602-82224fa7e2c7",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{showroom_id}}/card-accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{showroom_id}}",
+                "card-accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bank_name\": \"Test Bank\",\n  \"last_four_digits\": \"9999\",\n  \"current_balance\": 100000.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('new_card_id', String(json.data.id));",
+                  "    console.log('new_card_id saved:', json.data.id);",
+                  "}",
+                  "pm.test('Card account created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Card Account",
+          "_postman_id": "f10391f9-d77d-48ad-9cba-095a7349c61b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{showroom_id}}/card-accounts/{{new_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{showroom_id}}",
+                "card-accounts",
+                "{{new_card_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card account retrieved', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Card Account",
+          "_postman_id": "7fb6c25f-9d84-46a8-b7b9-0965d8f09ac0",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{showroom_id}}/card-accounts/{{new_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{showroom_id}}",
+                "card-accounts",
+                "{{new_card_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bank_name\": \"Test Bank Updated\",\n  \"last_four_digits\": \"9999\",\n  \"current_balance\": 150000.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card account updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Card Account",
+          "_postman_id": "e28e75d3-e955-45d1-9027-6caedc43b7a7",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/showrooms/{{showroom_id}}/card-accounts/{{new_card_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "showrooms",
+                "{{showroom_id}}",
+                "card-accounts",
+                "{{new_card_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card account deleted', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "ca877ed1-f235-4c57-a28a-4251c5908fb5",
+      "name": "5. Admin \u2014 Staff Management",
+      "description": "All use Bearer {{token}}. Run List Staff first to save staff_id.",
+      "item": [
+        {
+          "name": "List Staff",
+          "_postman_id": "f9b020fc-302e-4f70-8a2d-dccca89cba54",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('staff_id', String(json.data[0].id));",
+                  "    console.log('staff_id saved:', json.data[0].id);",
+                  "}",
+                  "pm.test('Staff list returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Staff",
+          "_postman_id": "841ae8d2-bee0-4b35-b6dc-df7a2d429a81",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Tester\",\n  \"email\": \"tester@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\",\n  \"showroom_id\": \"{{showroom_id}}\",\n  \"phone\": \"0771234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.id) {",
+                  "    pm.collectionVariables.set('new_staff_id', String(json.data.id));",
+                  "    console.log('new_staff_id saved:', json.data.id);",
+                  "}",
+                  "pm.test('Staff created', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Staff Member",
+          "_postman_id": "34e15040-99fa-42db-a7c9-624fca44b20f",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/{{new_staff_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "{{new_staff_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Staff member retrieved', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Staff Member",
+          "_postman_id": "2193f876-6743-44bd-86f8-2c7d6e2d81f9",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/{{new_staff_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "{{new_staff_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tester\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Staff updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Staff Member",
+          "_postman_id": "3d2dfea6-ef25-4572-95e1-6bcdb947505f",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/staff/{{new_staff_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "staff",
+                "{{new_staff_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Staff deleted', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "816aec0e-004d-47df-8c99-ffe381bc555c",
+      "name": "6. Admin \u2014 Cash Entries",
+      "description": "All use Bearer {{token}}. Requires cash_entry_id from folder 2.",
+      "item": [
+        {
+          "name": "List All Cash Entries",
+          "_postman_id": "67193047-5d12-4c22-85ce-8acce0fc750f",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cash entries returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Showroom",
+          "_postman_id": "79b2f0c2-e728-4eea-907a-0f864f0d3ba5",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries?showroom_id={{showroom_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries"
+              ],
+              "query": [
+                {
+                  "key": "showroom_id",
+                  "value": "{{showroom_id}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by showroom', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Date",
+          "_postman_id": "e8129cc8-c28a-46a4-a4b7-ce544a62e1f1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries?date=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by date', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Date Range",
+          "_postman_id": "afb1e5d3-e9c3-4372-bfdb-d08898164880",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries?from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by date range', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Cash Entry",
+          "_postman_id": "9f699768-f636-441b-aba1-b35c9b698188",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries/{{cash_entry_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries",
+                "{{cash_entry_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cash_amount\": 80000.0,\n  \"notes\": \"Corrected by admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cash entry updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lock Old Cash Entries",
+          "_postman_id": "7f894f3a-1946-4691-935b-0c70b0105dcb",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries/lock-old",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries",
+                "lock-old"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lock operation successful', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Cash Adjustment",
+          "_postman_id": "66a50294-c37b-483d-ba80-5e7b22befa95",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries/{{cash_entry_id}}/adjustments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries",
+                "{{cash_entry_id}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment_amount\": -5000.0,\n  \"reason\": \"Cash count discrepancy\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cash adjustment created', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Cash Adjustments",
+          "_postman_id": "8fd2db3d-8a5a-4eda-a125-c7f1ea70581a",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cash-entries/{{cash_entry_id}}/adjustments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cash-entries",
+                "{{cash_entry_id}}",
+                "adjustments"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cash adjustments returned', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "21e8a8c6-6021-41ab-94c2-404489cc9d44",
+      "name": "7. Admin \u2014 Card Entries",
+      "description": "All use Bearer {{token}}. Requires card_entry_id from folder 2.",
+      "item": [
+        {
+          "name": "List All Card Entries",
+          "_postman_id": "4649bace-da43-46f5-b022-b2315f319569",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card entries returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Showroom",
+          "_postman_id": "0941f62d-7154-4ac6-97af-2ddfbeff088d",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries?showroom_id={{showroom_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries"
+              ],
+              "query": [
+                {
+                  "key": "showroom_id",
+                  "value": "{{showroom_id}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by showroom', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Date Range",
+          "_postman_id": "7a71341e-4b94-4e4a-96a7-1911a662c809",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries?from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by date range', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Card Entry",
+          "_postman_id": "87f9b80f-bf16-42a0-8698-d09c4899c58d",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries/{{card_entry_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries",
+                "{{card_entry_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000.0,\n  \"notes\": \"Adjusted by admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card entry updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lock Old Card Entries",
+          "_postman_id": "2b4b7e23-4f12-4b8c-b3e3-da4e97facd41",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries/lock-old",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries",
+                "lock-old"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lock operation successful', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Card Adjustment",
+          "_postman_id": "bc642b63-e19a-4954-97e6-c63f8f81bd74",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries/{{card_entry_id}}/adjustments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries",
+                "{{card_entry_id}}",
+                "adjustments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjustment_amount\": 2000.0,\n  \"reason\": \"Settlement difference\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card adjustment created', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Card Adjustments",
+          "_postman_id": "98202348-fc50-431c-ad47-efea3af718f3",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/card-entries/{{card_entry_id}}/adjustments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "card-entries",
+                "{{card_entry_id}}",
+                "adjustments"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card adjustments returned', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "d898ecb1-0c86-45f0-b850-f9159fd39816",
+      "name": "8. Admin \u2014 Self-Transactions",
+      "description": "All use Bearer {{token}}. Uses card_account_id from folder 2. Note: to_card_account_id is hardcoded to 2 \u2014 update if your seeded IDs differ.",
+      "item": [
+        {
+          "name": "List Self-Transactions",
+          "_postman_id": "ae0a357c-e47a-4c45-ab8a-288ee000409a",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/self-transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "self-transactions"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Self-transactions returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Self-Transaction",
+          "_postman_id": "41dda9a9-3388-47a4-81f2-0d3dbb08ce2d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/self-transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "self-transactions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from_card_account_id\": \"{{card_account_id}}\",\n  \"to_card_account_id\": 2,\n  \"amount\": 10000.0,\n  \"notes\": \"Transfer for supplier payment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Self-transaction created', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "467558fe-2e2d-42b2-9cf2-9c071399d7ef",
+      "name": "9. Admin \u2014 Settings",
+      "description": "All use Bearer {{token}}. Run List Settings first to save setting_id.",
+      "item": [
+        {
+          "name": "List Settings",
+          "_postman_id": "aec54c99-6cb4-4773-802c-0d5bc9a83ca6",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "var settings = Array.isArray(json.data) ? json.data : (json.data ? [json.data] : []);",
+                  "var target = settings.find(function(s) { return s.key === 'lock_hours'; }) || settings[0];",
+                  "if (target) {",
+                  "    pm.collectionVariables.set('setting_id', String(target.id));",
+                  "    console.log('setting_id saved:', target.id, '| key:', target.key);",
+                  "}",
+                  "pm.test('Settings returned', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Setting (lock_hours)",
+          "_postman_id": "9d701feb-679c-44fb-b791-f55915829244",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/settings/{{setting_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings",
+                "{{setting_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": \"48\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Setting updated', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "036453b0-2dc7-464a-a175-377e8a3acb5e",
+      "name": "10. Admin \u2014 Audit Logs",
+      "description": "All use Bearer {{token}}. Read-only endpoints.",
+      "item": [
+        {
+          "name": "List All Audit Logs",
+          "_postman_id": "47fb88b0-4f55-4cfc-8430-b1685d645c40",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Audit logs returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Table Name",
+          "_postman_id": "24a2764b-35c4-47c6-8154-0e75259a54f1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs?table_name=daily_cash_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "table_name",
+                  "value": "daily_cash_entries"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by table name', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by Action",
+          "_postman_id": "540721c8-0e66-4616-9a86-281552d9c088",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs?action=created",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "created"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by action', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by User",
+          "_postman_id": "30b68719-0892-472e-b7af-10f2ec8bb41f",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audit-logs?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Filtered by user', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "_postman_id": "b98de2d2-e151-4022-b156-8b6d1153d133",
+      "name": "11. Admin \u2014 PDF Reports",
+      "description": "All use Bearer {{token}}. Responses are application/pdf downloads. In Postman, save the response to a file to view the PDF.",
+      "item": [
+        {
+          "name": "Daily Summary PDF",
+          "_postman_id": "5450913a-9ca4-41b4-b30c-054d881f4882",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pdf/daily-summary?date=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "pdf",
+                "daily-summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Daily summary PDF returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Showroom Report PDF",
+          "_postman_id": "77034703-054a-4a11-8f2a-d3159087ab8c",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pdf/showroom?showroom_id={{showroom_id}}&from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "pdf",
+                "showroom"
+              ],
+              "query": [
+                {
+                  "key": "showroom_id",
+                  "value": "{{showroom_id}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Showroom report PDF returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Card Statement PDF",
+          "_postman_id": "2ef411da-1dc3-4e5d-91ec-f2a34c27f5ed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pdf/card-statement?card_account_id={{card_account_id}}&from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "pdf",
+                "card-statement"
+              ],
+              "query": [
+                {
+                  "key": "card_account_id",
+                  "value": "{{card_account_id}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Card statement PDF returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Self-Transactions PDF",
+          "_postman_id": "7d3d815f-4d0d-44c7-a610-dc92ddb30737",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pdf/self-transactions?from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "pdf",
+                "self-transactions"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Self-transactions PDF returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Adjustments PDF",
+          "_postman_id": "3aee47f5-3a05-4b95-afdb-001e1fa73ffb",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/pdf/adjustments?from=2026-04-01&to=2026-04-11",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "pdf",
+                "adjustments"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-11"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Adjustments PDF returned', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "staff_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reset_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "card_account_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cash_entry_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "card_entry_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "showroom_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "new_showroom_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "new_card_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "staff_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "new_staff_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "setting_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

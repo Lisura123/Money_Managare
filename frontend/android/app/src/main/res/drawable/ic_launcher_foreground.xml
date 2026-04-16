@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: white "M" letter centered on transparent background -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- White "M" shape, centered in safe zone (28dp–80dp) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,76 L28,32 L40,32 L54,58 L68,32 L80,32 L80,76 L70,76 L70,50 L57,74 L51,74 L38,50 L38,76 Z"/>
+</vector>

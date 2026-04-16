@@ -1,0 +1,17 @@
+.venv/
+.vscode/
+.DS_Store
+
+# Backend
+backend/vendor/
+backend/.env
+backend/storage/logs/*.log
+
+# Frontend
+frontend/.dart_tool/
+frontend/build/
+
+# Staff Web
+staff-web/node_modules/
+staff-web/dist/
+staff-web/.env
