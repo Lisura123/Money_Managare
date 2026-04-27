@@ -1,21 +1,30 @@
 import 'dart:io' show Platform;
 
+enum Environment { dev, production }
+
 class AppConfig {
-  // ─── Base URL ──────────────────────────────────────────────────────────────
-  // For emulators/simulators, the host machine's localhost is resolved via
-  // platform-specific aliases. For real devices, set _realDeviceIp to your
-  // computer's LAN IP (e.g. '192.168.1.5') and run the backend with:
-  //   php artisan serve --host=0.0.0.0 --port=8000
-  // Then switch _useRealDevice to true.
+  // ─── Environment ───────────────────────────────────────────────────────────
+  // Build with:  flutter build ipa --dart-define=ENV=production
+  // Default:     dev (localhost for emulators/simulators)
+  static const _envString = String.fromEnvironment('ENV', defaultValue: 'dev');
+  static const environment =
+      _envString == 'production' ? Environment.production : Environment.dev;
+
+  // ─── Production URL ────────────────────────────────────────────────────────
+  // Replace with your actual production server URL.
+  static const String _productionUrl = 'https://money.cameralkstore.com/api';
+
+  // ─── Dev: real device LAN IP ───────────────────────────────────────────────
   static const bool _useRealDevice = false;
-  static const String _realDeviceIp = '192.168.1.5'; // ← update this
+  static const String _realDeviceIp = '192.168.1.5';
 
   static String get baseUrl {
+    if (environment == Environment.production) {
+      return _productionUrl;
+    }
     if (_useRealDevice) {
       return 'http://$_realDeviceIp:8000/api';
     }
-    // Android emulator uses 10.0.2.2 to reach host machine localhost.
-    // iOS simulator uses localhost directly.
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:8000/api';
     }
