@@ -16,7 +16,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [adminRejected, setAdminRejected] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard', { replace: true })
@@ -30,7 +29,6 @@ export default function LoginPage() {
     async (e) => {
       e.preventDefault()
       setError('')
-      setAdminRejected(false)
 
       if (!email.trim() || !password) {
         setError('Please enter your email and password.')
@@ -40,12 +38,12 @@ export default function LoginPage() {
       setLoading(true)
       try {
         const result = await login(email.trim(), password)
-        if (result.adminRejected) {
-          setAdminRejected(true)
-          return
-        }
         toast.success(`Welcome back, ${result.user.name}!`)
-        navigate('/dashboard', { replace: true })
+        if (result.user.role === 'admin') {
+          navigate('/admin/dashboard', { replace: true })
+        } else {
+          navigate('/dashboard', { replace: true })
+        }
       } catch (err) {
         setError(err.response?.data?.message || err.message || 'Login failed. Please try again.')
       } finally {
@@ -75,30 +73,7 @@ export default function LoginPage() {
 
         {/* Login card */}
         <div className="bg-white dark:bg-navy rounded-2xl shadow-2xl p-8">
-          {adminRejected ? (
-            <div className="text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center mx-auto">
-                <span className="text-amber-600 text-xl">⚠️</span>
-              </div>
-              <h2 className="font-heading font-semibold text-gray-900 dark:text-white">
-                Admin Account Detected
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                This portal is for <strong>showroom staff only</strong>. Please use the mobile app
-                for admin access.
-              </p>
-              <button
-                onClick={() => {
-                  setAdminRejected(false)
-                  setPassword('')
-                }}
-                className="btn-outline w-full justify-center"
-              >
-                Back to Login
-              </button>
-            </div>
-          ) : (
-            <>
+          <>
               <h2 className="font-heading font-semibold text-gray-900 dark:text-white text-xl mb-6">
                 Sign in to your account
               </h2>
@@ -180,12 +155,11 @@ export default function LoginPage() {
                   {loading ? <LoadingSpinner size="sm" /> : 'Sign In'}
                 </button>
               </form>
-            </>
-          )}
+          </>
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          Staff portal only. For admin access, use the mobile app.
+          Money Manager · CameraLK
         </p>
       </div>
     </div>

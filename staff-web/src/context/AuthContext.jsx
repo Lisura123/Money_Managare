@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
       // so we use the cached user and re-verify on the first real API call.
       if (cachedUser) {
         const parsed = JSON.parse(cachedUser)
-        if (parsed.role === ROLES.STAFF) {
+        if (parsed.role === ROLES.STAFF || parsed.role === ROLES.ADMIN) {
           setUser(parsed)
         } else {
           clearAuth()
@@ -69,9 +69,8 @@ export function AuthProvider({ children }) {
     const response = await api.post('/login', { email, password })
     const { token, user: userData } = response.data
 
-    if (userData.role !== ROLES.STAFF) {
-      // Return a rejection signal — do NOT store token
-      return { adminRejected: true, user: userData }
+    if (userData.role !== ROLES.STAFF && userData.role !== ROLES.ADMIN) {
+      throw new Error('Your account does not have access to this portal.')
     }
 
     if (!userData.is_active) {
@@ -82,7 +81,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData))
     setUser(userData)
 
-    return { adminRejected: false, user: userData }
+    return { user: userData }
   }, [])
 
   const logout = useCallback(async () => {

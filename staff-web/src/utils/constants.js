@@ -17,6 +17,20 @@ export const ENDPOINTS = {
   MY_CARD_ACCOUNTS: '/my-card-accounts',
   EDIT_REQUESTS: '/edit-requests',
   MY_EDIT_REQUESTS: '/edit-requests/my-requests',
+
+  // Admin
+  ADMIN_DASHBOARD_SUMMARY: '/admin/dashboard-summary',
+  SHOWROOMS: '/showrooms',
+  STAFF: '/staff',
+  ADMIN_CASH_ENTRIES: '/cash-entries',
+  ADMIN_CARD_ENTRIES: '/card-entries',
+  ADMIN_EDIT_REQUESTS: '/edit-requests',
+  ADMIN_EDIT_REQUESTS_PENDING_COUNT: '/edit-requests/pending-count',
+  SELF_TRANSACTIONS: '/self-transactions',
+  CASH_TRANSACTIONS: '/cash-transactions',
+  EXTERNAL_ACCOUNTS: '/external-accounts',
+  AUDIT_LOGS: '/audit-logs',
+  SETTINGS: '/settings',
 }
 
 export const ROLES = {

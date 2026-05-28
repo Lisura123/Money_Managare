@@ -1,22 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  MdBarChart,
   MdChevronLeft,
   MdChevronRight,
   MdCreditCard,
   MdDashboard,
   MdEditNote,
   MdHistory,
+  MdListAlt,
   MdLogout,
+  MdPeople,
   MdPerson,
+  MdReceipt,
+  MdSettings,
+  MdStorefront,
+  MdSwapHoriz,
   MdWallet,
 } from 'react-icons/md'
 import { NavLink, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import ConfirmDialog from '../common/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
-import { APP_NAME } from '../../utils/constants'
+import { APP_NAME, ROLES } from '../../utils/constants'
 
-const NAV_ITEMS = [
+const STAFF_NAV = [
   { to: '/dashboard', icon: MdDashboard, label: 'Dashboard' },
   {
     icon: MdWallet,
@@ -32,12 +39,44 @@ const NAV_ITEMS = [
   { to: '/profile', icon: MdPerson, label: 'Profile' },
 ]
 
+const ADMIN_NAV = [
+  { to: '/admin/dashboard', icon: MdDashboard, label: 'Dashboard' },
+  { to: '/admin/showrooms', icon: MdStorefront, label: 'Showrooms' },
+  { to: '/admin/staff', icon: MdPeople, label: 'Staff' },
+  { to: '/admin/cash-entries', icon: MdWallet, label: 'Cash Entries' },
+  { to: '/admin/card-entries', icon: MdCreditCard, label: 'Card Entries' },
+  { to: '/admin/edit-requests', icon: MdEditNote, label: 'Edit Requests', badge: true },
+  { to: '/admin/self-transactions', icon: MdSwapHoriz, label: 'Self Transactions' },
+  { to: '/admin/reports', icon: MdBarChart, label: 'Reports' },
+  { to: '/admin/audit-logs', icon: MdListAlt, label: 'Audit Logs' },
+  { to: '/admin/settings', icon: MdSettings, label: 'Settings' },
+  { to: '/change-password', icon: MdReceipt, label: 'Change Password' },
+]
+
 export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [cashOpen, setCashOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const [showLogout, setShowLogout] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const isAdmin = user?.role === ROLES.ADMIN
+  const NAV_ITEMS = isAdmin ? ADMIN_NAV : STAFF_NAV
+
+  // Poll pending edit request count for admin
+  useEffect(() => {
+    if (!isAdmin) return
+    const fetchCount = async () => {
+      try {
+        const { default: api } = await import('../../config/api')
+        const res = await api.get('/edit-requests/pending-count')
+        setPendingCount(res.data?.count ?? 0)
+      } catch { /* ignore */ }
+    }
+    fetchCount()
+    const t = setInterval(fetchCount, 60_000)
+    return () => clearInterval(t)
+  }, [isAdmin])
 
   const handleLogout = useCallback(async () => {
     setLoggingOut(true)
@@ -168,7 +207,17 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
                 }
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span className="flex-1">{item.label}</span>}
+                {!collapsed && item.badge && pendingCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
+                {collapsed && item.badge && pendingCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-3 h-3 flex items-center justify-center">
+                    !
+                  </span>
+                )}
               </NavLink>
             )
           })}
@@ -183,7 +232,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-white text-xs font-medium truncate">{user?.name}</p>
-                <p className="text-slate-400 text-xs truncate">{user?.showroom?.name || 'Staff'}</p>
+                <p className="text-slate-400 text-xs truncate">{isAdmin ? 'Admin' : (user?.showroom?.name || 'Staff')}</p>
               </div>
             )}
             {!collapsed && (
