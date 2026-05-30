@@ -14,7 +14,7 @@ import api from '../../config/api'
 
 // ─── Edit Card Entry Modal ────────────────────────────────────────────────────
 function EditCardEntryModal({ open, entry, onClose, onSaved }) {
-  const [amount, setAmount] = useState(entry?.card_amount || '')
+  const [amount, setAmount] = useState(entry?.amount || '')
   const [notes, setNotes] = useState(entry?.notes || '')
   const [loading, setLoading] = useState(false)
 
@@ -22,7 +22,7 @@ function EditCardEntryModal({ open, entry, onClose, onSaved }) {
     e.preventDefault()
     setLoading(true)
     try {
-      await api.put(`/card-entries/${entry.id}`, { card_amount: parseFloat(amount), notes: notes.trim() || null })
+      await api.put(`/card-entries/${entry.id}`, { amount: parseFloat(amount), notes: notes.trim() || null })
       toast.success('Entry updated.')
       onSaved()
     } catch (err) {
@@ -38,7 +38,7 @@ function EditCardEntryModal({ open, entry, onClose, onSaved }) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-navy rounded-xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
         <h3 className="font-heading font-semibold text-navy dark:text-white text-base mb-1">Edit Card Entry</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom_name} · {formatDate(entry?.entry_date)}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom?.name} · {formatDate(entry?.entry_date)}</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="form-label">Card Amount (Rs.) *</label>
@@ -86,7 +86,7 @@ function AdjustmentModal({ open, entry, onClose, onSaved }) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-navy rounded-xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
         <h3 className="font-heading font-semibold text-navy dark:text-white text-base mb-1">Add Adjustment</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom_name} · {formatDate(entry?.entry_date)}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom?.name} · {formatDate(entry?.entry_date)}</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="form-label">Amount (Rs.) — positive or negative *</label>
@@ -209,11 +209,11 @@ export default function CardEntriesAdminPage() {
                 {entries.map(entry => (
                   <tr key={entry.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <td className="py-3 px-4 text-navy dark:text-white font-medium">{formatDate(entry.entry_date)}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.showroom_name}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.user_name}</td>
+                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.showroom?.name}</td>
+                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.user?.name}</td>
                     <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs">{entry.card_account ? `${entry.card_account.bank_name} ···${entry.card_account.last_four}` : '—'}</td>
-                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(entry.card_amount)}</td>
-                    <td className="py-3 px-4 text-right font-medium text-navy dark:text-white">{formatCurrency(entry.adjusted_amount ?? entry.card_amount)}</td>
+                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(entry.amount)}</td>
+                    <td className="py-3 px-4 text-right font-medium text-navy dark:text-white">{formatCurrency(entry.adjustments?.length > 0 ? entry.adjustments[entry.adjustments.length - 1].adjusted_amount : entry.amount)}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1 justify-end">
                         {!entry.is_locked && (
@@ -257,7 +257,7 @@ export default function CardEntriesAdminPage() {
         open={!!deleteTarget}
         danger
         title="Delete Entry"
-        message={`Delete card entry of ${formatCurrency(deleteTarget?.card_amount)} for ${deleteTarget?.showroom_name}?`}
+        message={`Delete card entry of ${formatCurrency(deleteTarget?.amount)} for ${deleteTarget?.showroom?.name}?`}
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

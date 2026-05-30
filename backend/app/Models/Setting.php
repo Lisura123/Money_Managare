@@ -14,6 +14,11 @@ class Setting extends Model
         return $setting ? $setting->value : $default;
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'key';
+    }
+
     public static function isWithinEditWindow(): bool
     {
         $start = static::get('edit_window_start', '00:00');

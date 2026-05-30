@@ -44,7 +44,7 @@ function EditEntryModal({ open, entry, onClose, onSaved }) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-navy rounded-xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
         <h3 className="font-heading font-semibold text-navy dark:text-white text-base mb-1">Edit Cash Entry</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom_name} · {formatDate(entry?.entry_date)}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{entry?.showroom?.name} · {formatDate(entry?.entry_date)}</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="form-label">Cash Amount (Rs.) *</label>
@@ -228,15 +228,15 @@ export default function CashEntriesAdminPage() {
                 {entries.map(entry => (
                   <tr key={entry.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <td className="py-3 px-4 text-navy dark:text-white font-medium">{formatDate(entry.entry_date)}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.showroom_name}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.user_name}</td>
+                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.showroom?.name}</td>
+                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.user?.name}</td>
                     <td className="py-3 px-4">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${entry.cash_account_type === 'main' ? 'bg-teal/10 text-teal' : 'bg-blue-500/10 text-blue-600'}`}>
                         {entry.cash_account_type === 'main' ? 'Main' : "Mano's"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(entry.cash_amount)}</td>
-                    <td className="py-3 px-4 text-right font-medium text-navy dark:text-white">{formatCurrency(entry.adjusted_amount ?? entry.cash_amount)}</td>
+                    <td className="py-3 px-4 text-right font-medium text-navy dark:text-white">{formatCurrency(entry.adjustments?.length > 0 ? entry.adjustments[entry.adjustments.length - 1].adjusted_amount : entry.cash_amount)}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1 justify-end">
                         {!entry.is_locked && (
@@ -282,7 +282,7 @@ export default function CashEntriesAdminPage() {
         open={!!deleteTarget}
         danger
         title="Delete Entry"
-        message={`Delete cash entry of ${formatCurrency(deleteTarget?.cash_amount)} for ${deleteTarget?.showroom_name}?`}
+        message={`Delete this cash entry of ${formatCurrency(deleteTarget?.cash_amount)} for ${deleteTarget?.showroom?.name}?`}
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}

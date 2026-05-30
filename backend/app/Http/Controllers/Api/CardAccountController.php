@@ -45,6 +45,15 @@ class CardAccountController extends Controller
     }
 
     /**
+     * Admin: list all card accounts (flat, for cross-showroom pickers)
+     */
+    public function adminIndex(): JsonResponse
+    {
+        $accounts = CardAccount::with('showroom')->get();
+        return CardAccountResource::collection($accounts)->toResponse(request());
+    }
+
+    /**
      * Staff: list card accounts for their own showroom
      */
     public function myShowroomAccounts(): JsonResponse

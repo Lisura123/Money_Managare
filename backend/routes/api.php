@@ -84,9 +84,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Card accounts per showroom
         Route::apiResource('/showrooms/{showroom}/card-accounts', CardAccountController::class);
 
+        // All card accounts (flat list for admin pickers)
+        Route::get('/card-accounts', [CardAccountController::class, 'adminIndex']);
+
         // Staff management
         Route::apiResource('/staff', StaffController::class);
         Route::post('/staff/{staff}/send-reset-email', [StaffController::class, 'sendResetEmail']);
+        Route::patch('/staff/{staff}/toggle-active', [StaffController::class, 'toggleActive']);
 
         // All cash entries with filters
         Route::get('/cash-entries', [DailyCashEntryController::class, 'index']);

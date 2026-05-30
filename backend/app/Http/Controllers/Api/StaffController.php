@@ -129,4 +129,11 @@ class StaffController extends Controller
 
         return response()->json(['message' => "Password reset code sent to {$staff->email}."]);
     }
+
+    public function toggleActive(User $staff): JsonResponse
+    {
+        abort_if($staff->role !== 'staff', 404);
+        $staff->update(['is_active' => ! $staff->is_active]);
+        return response()->json(new UserResource($staff->load('showroom')));
+    }
 }
