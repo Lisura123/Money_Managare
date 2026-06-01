@@ -1,6 +1,6 @@
 import Foundation
 
-struct Showroom: Codable, Identifiable {
+struct Showroom: Codable, Identifiable, Hashable {
     let id: Int
     let name: String
     let location: String?

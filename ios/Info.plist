@@ -24,8 +24,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Money Manager uses Face ID to secure your stored credentials.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Money Manager needs access to save reports to your photo library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -46,25 +59,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- App Transport Security: allow HTTP to localhost/simulator only -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<!-- flutter_secure_storage: required on Face ID devices -->
-	<key>NSFaceIDUsageDescription</key>
-	<string>Money Manager uses Face ID to secure your stored credentials.</string>
-	<!-- PDF saving may trigger photo library access on some devices -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Money Manager needs access to save reports to your photo library.</string>
-	<!-- Disable document browser / open-in-place -->
 	<key>UISupportsDocumentBrowser</key>
-	<false/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<false/>
-	<!-- App only uses standard HTTPS (exempt from export compliance) -->
-	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
 </plist>

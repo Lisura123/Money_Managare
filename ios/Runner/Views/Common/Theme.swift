@@ -42,13 +42,31 @@ extension Double {
 // MARK: - Date formatting
 
 extension String {
-    /// "2024-05-30" → "May 30, 2024"
+    /// "2024-05-30" or ISO timestamp → "May 30, 2024"
     var displayDate: String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        guard let d = f.date(from: self) else { return self }
-        f.dateStyle = .medium; f.timeStyle = .none
-        return f.string(from: d)
+        let out = DateFormatter()
+        out.dateStyle = .medium; out.timeStyle = .none
+
+        // Try plain date first
+        let plain = DateFormatter()
+        plain.dateFormat = "yyyy-MM-dd"
+        if let d = plain.date(from: self) { return out.string(from: d) }
+
+        // Try ISO8601 with fractional seconds
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: self) { return out.string(from: d) }
+
+        // Try ISO8601 without fractional seconds
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: self) { return out.string(from: d) }
+
+        // Fallback: extract date part before 'T'
+        let datePart = String(self.prefix(10))
+        plain.dateFormat = "yyyy-MM-dd"
+        if let d = plain.date(from: datePart) { return out.string(from: d) }
+
+        return self
     }
 
     /// ISO8601 → "May 30, 2024 02:45 PM"

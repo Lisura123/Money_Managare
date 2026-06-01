@@ -2,58 +2,63 @@ import SwiftUI
 
 struct ShowroomListView: View {
     @StateObject private var vm = ShowroomViewModel()
+    @State private var path: [Showroom] = []
     @State private var showForm = false
     @State private var editTarget: Showroom?
-    @State private var selectedItem: Showroom?
     @State private var deleteAlert: Showroom?
     @State private var isSelecting = false
     @State private var selectedIds: Set<Int> = []
     @State private var bulkDeleteAlert = false
 
     var body: some View {
-        NavigationStack {
-            Group {
+        NavigationStack(path: $path) {
+            List {
                 if vm.isLoading && vm.showrooms.isEmpty {
-                    ProgressView().frame(maxWidth: .infinity).padding(40)
-                } else if vm.showrooms.isEmpty {
-                    EmptyStateView(icon: "storefront", message: "No showrooms yet")
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(40)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                } else if !vm.isLoading && vm.showrooms.isEmpty {
+                    Text("No showrooms yet")
+                        .foregroundStyle(Color.mmTextSecondary)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 } else {
-                    List {
-                        ForEach(vm.showrooms) { s in
-                            if isSelecting {
-                                Button {
-                                    if selectedIds.contains(s.id) { selectedIds.remove(s.id) }
-                                    else { selectedIds.insert(s.id) }
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: selectedIds.contains(s.id) ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(selectedIds.contains(s.id) ? Color.mmPrimary : Color.mmTextSecondary)
-                                            .font(.system(size: 20))
-                                        ShowroomRow(showroom: s)
-                                    }
-                                }
-                                .listRowBackground(selectedIds.contains(s.id) ? Color.mmPrimary.opacity(0.1) : Color.clear)
-                                .listRowSeparator(.hidden)
-                            } else {
-                                NavigationLink(destination: ShowroomDetailView(showroom: s)) {
+                    ForEach(vm.showrooms) { s in
+                        if isSelecting {
+                            Button {
+                                if selectedIds.contains(s.id) { selectedIds.remove(s.id) }
+                                else { selectedIds.insert(s.id) }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: selectedIds.contains(s.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selectedIds.contains(s.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                        .font(.system(size: 20))
                                     ShowroomRow(showroom: s)
                                 }
-                                .contentShape(Rectangle())
-                                .onTapGesture { selectedItem = selectedItem?.id == s.id ? nil : s }
-                                .listRowBackground(selectedItem?.id == s.id ? Color.mmPrimary.opacity(0.1) : Color.clear)
-                                .listRowSeparator(.hidden)
-                                .swipeActions(edge: .trailing) {
-                                    Button("Edit") { editTarget = s }.tint(Color.mmPrimary)
-                                }
+                            }
+                            .listRowBackground(selectedIds.contains(s.id) ? Color.mmPrimary.opacity(0.1) : Color.clear)
+                            .listRowSeparator(.hidden)
+                        } else {
+                            NavigationLink(value: s) {
+                                ShowroomRow(showroom: s)
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing) {
+                                Button("Edit") { editTarget = s }.tint(Color.mmPrimary)
                             }
                         }
                     }
-                    .listStyle(.plain)
-                    .refreshable { await vm.fetchAll() }
                 }
             }
+            .listStyle(.plain)
             .background(Color.mmBackground)
             .navigationTitle("Showrooms")
+            .navigationDestination(for: Showroom.self) { s in
+                ShowroomDetailView(showroom: s)
+            }
             .toolbar {
                 if isSelecting {
                     ToolbarItem(placement: .cancellationAction) {
@@ -71,28 +76,13 @@ struct ShowroomListView: View {
                         }
                     }
                     ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            if let item = selectedItem {
-                                Button(role: .destructive) { deleteAlert = item } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                Button { editTarget = item } label: {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-                                Divider()
-                            } else {
-                                Text("Tap a row to select")
-                                Divider()
-                            }
-                            Button { isSelecting = true } label: {
-                                Label("Select Multiple", systemImage: "checkmark.circle")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
+                        Button { isSelecting = true } label: {
+                            Image(systemName: "checkmark.circle")
                         }
                     }
                 }
             }
+            .refreshable { await vm.fetchAll() }
             .sheet(isPresented: $showForm) {
                 ShowroomFormView(existing: nil) { await vm.fetchAll() }
             }
@@ -104,7 +94,7 @@ struct ShowroomListView: View {
                     title: Text("Delete \(s.name)?"),
                     message: Text("This action cannot be undone."),
                     primaryButton: .destructive(Text("Delete")) {
-                        Task { try? await vm.delete(s.id); selectedItem = nil }
+                        Task { try? await vm.delete(s.id) }
                     },
                     secondaryButton: .cancel()
                 )
@@ -229,10 +219,10 @@ struct ShowroomDetailView: View {
                     SectionHeader(title: "Staff")
                     if staffVM.isLoading {
                         ProgressView()
-                    } else if staffVM.staffList.isEmpty {
+                    } else if staffVM.staffList.filter({ $0.showroomId == showroom.id }).isEmpty {
                         Text("No staff assigned").font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
                     } else {
-                        ForEach(staffVM.staffList) { s in
+                        ForEach(staffVM.staffList.filter({ $0.showroomId == showroom.id })) { s in
                             StaffRow(user: s)
                         }
                     }
