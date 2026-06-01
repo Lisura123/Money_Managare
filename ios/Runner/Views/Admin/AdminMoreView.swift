@@ -18,6 +18,9 @@ struct AdminMoreView: View {
                 }
 
                 Section("Management") {
+                    NavigationLink(destination: UserManagementView()) {
+                        Label("User Management", systemImage: "person.2.badge.gearshape")
+                    }
                     NavigationLink(destination: EditRequestsView()) {
                         Label("Edit Requests", systemImage: "pencil.circle")
                     }
@@ -122,27 +125,148 @@ struct ReportsView: View {
 
 // MARK: - Audit Log
 
+// MARK: - Audit Log Filter Model
+
+enum AuditTableFilter: String, CaseIterable, Identifiable {
+    case all = ""
+    case cashEntries   = "daily_cash_entries"
+    case cardEntries   = "daily_card_entries"
+    case cardAccounts  = "card_accounts"
+    case selfTx        = "self_transactions"
+    case cashTx        = "cash_transactions"
+    case adjustments   = "admin_cash_adjustments"
+    case cardAdj       = "admin_card_adjustments"
+    case users         = "users"
+    case showrooms     = "showrooms"
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all:          return "All"
+        case .cashEntries:  return "Cash Entries"
+        case .cardEntries:  return "Card Entries"
+        case .cardAccounts: return "Card Accounts"
+        case .selfTx:       return "Self Transfers"
+        case .cashTx:       return "Cash Transfers"
+        case .adjustments:  return "Cash Adjustments"
+        case .cardAdj:      return "Card Adjustments"
+        case .users:        return "Users"
+        case .showrooms:    return "Showrooms"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .all:          return "line.3.horizontal.decrease.circle"
+        case .cashEntries:  return "dollarsign.circle"
+        case .cardEntries:  return "creditcard"
+        case .cardAccounts: return "creditcard.fill"
+        case .selfTx:       return "arrow.left.arrow.right"
+        case .cashTx:       return "banknote"
+        case .adjustments:  return "slider.horizontal.3"
+        case .cardAdj:      return "slider.horizontal.3"
+        case .users:        return "person.2"
+        case .showrooms:    return "storefront"
+        }
+    }
+}
+
+enum AuditActionFilter: String, CaseIterable, Identifiable {
+    case all              = ""
+    case created          = "created"
+    case updated          = "updated"
+    case deleted          = "deleted"
+    case passwordChanged  = "password_changed"
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all:             return "All Actions"
+        case .created:         return "Created"
+        case .updated:         return "Updated"
+        case .deleted:         return "Deleted"
+        case .passwordChanged: return "Password Changed"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .all:             return .mmPrimary
+        case .created:         return .mmSuccess
+        case .updated:         return .mmPrimary
+        case .deleted:         return .mmError
+        case .passwordChanged: return .mmWarning
+        }
+    }
+}
+
 struct AuditLogView: View {
     @StateObject private var vm = AuditLogViewModel()
-    @State private var tableFilter = ""
-    @State private var actionFilter = ""
+    @State private var tableFilter: AuditTableFilter = .all
+    @State private var actionFilter: AuditActionFilter = .all
+    @State private var dateFrom: Date = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+    @State private var dateTo: Date = Date()
+    @State private var useDateFilter = false
+    @State private var showFilters = false
+    @State private var selectedItem: AuditLog?
+    @State private var deleteAlert: AuditLog?
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<Int> = []
+    @State private var bulkDeleteAlert = false
+
+    private let dateFmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
+
+    private var activeFilterCount: Int {
+        (tableFilter != .all ? 1 : 0) + (actionFilter != .all ? 1 : 0) + (useDateFilter ? 1 : 0)
+    }
+
+    private func applyFilters() async {
+        await vm.fetchAll(
+            tableName: tableFilter.rawValue.isEmpty ? nil : tableFilter.rawValue,
+            action: actionFilter.rawValue.isEmpty ? nil : actionFilter.rawValue,
+            dateFrom: useDateFilter ? dateFmt.string(from: dateFrom) : nil,
+            dateTo: useDateFilter ? dateFmt.string(from: dateTo) : nil,
+            refresh: true
+        )
+    }
+
+    private func loadMore() async {
+        await vm.fetchAll(
+            tableName: tableFilter.rawValue.isEmpty ? nil : tableFilter.rawValue,
+            action: actionFilter.rawValue.isEmpty ? nil : actionFilter.rawValue,
+            dateFrom: useDateFilter ? dateFmt.string(from: dateFrom) : nil,
+            dateTo: useDateFilter ? dateFmt.string(from: dateTo) : nil
+        )
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Quick filter row
-                HStack(spacing: 10) {
-                    TextField("Table", text: $tableFilter).textFieldStyle(.roundedBorder).frame(maxWidth: 120)
-                    TextField("Action", text: $actionFilter).textFieldStyle(.roundedBorder).frame(maxWidth: 100)
-                    Button("Filter") {
-                        Task { await vm.fetchAll(tableName: tableFilter.isEmpty ? nil : tableFilter,
-                                                  action: actionFilter.isEmpty ? nil : actionFilter,
-                                                  refresh: true) }
+                // Active filter chips
+                if activeFilterCount > 0 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            if tableFilter != .all {
+                                AuditFilterChip(label: tableFilter.label, icon: tableFilter.icon) {
+                                    tableFilter = .all; Task { await applyFilters() }
+                                }
+                            }
+                            if actionFilter != .all {
+                                AuditFilterChip(label: actionFilter.label, color: actionFilter.color) {
+                                    actionFilter = .all; Task { await applyFilters() }
+                                }
+                            }
+                            if useDateFilter {
+                                AuditFilterChip(label: "\(dateFmt.string(from: dateFrom)) – \(dateFmt.string(from: dateTo))",
+                                           icon: "calendar") {
+                                    useDateFilter = false; Task { await applyFilters() }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 8)
                     }
-                    .foregroundStyle(Color.mmAccent)
+                    .background(Color.mmCard)
                 }
-                .padding(12)
-                .background(Color.mmCard)
 
                 Group {
                     if vm.isLoading && vm.logs.isEmpty {
@@ -153,25 +277,203 @@ struct AuditLogView: View {
                         List {
                             ForEach(vm.logs) { log in
                                 AuditLogRow(log: log)
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .onAppear {
-                                        if log.id == vm.logs.last?.id {
-                                            Task { await vm.fetchAll(tableName: tableFilter.isEmpty ? nil : tableFilter,
-                                                                      action: actionFilter.isEmpty ? nil : actionFilter) }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if isSelecting {
+                                            if selectedIds.contains(log.id) { selectedIds.remove(log.id) }
+                                            else { selectedIds.insert(log.id) }
+                                        } else {
+                                            selectedItem = selectedItem?.id == log.id ? nil : log
                                         }
+                                    }
+                                    .listRowBackground(
+                                        (isSelecting ? selectedIds.contains(log.id) : selectedItem?.id == log.id)
+                                            ? Color.mmPrimary.opacity(0.1) : Color.clear
+                                    )
+                                    .listRowSeparator(.hidden)
+                                    .overlay(alignment: .leading) {
+                                        if isSelecting {
+                                            Image(systemName: selectedIds.contains(log.id) ? "checkmark.circle.fill" : "circle")
+                                                .foregroundStyle(selectedIds.contains(log.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                                .font(.system(size: 20))
+                                                .padding(.leading, 20)
+                                        }
+                                    }
+                                    .onAppear {
+                                        if log.id == vm.logs.last?.id { Task { await loadMore() } }
                                     }
                             }
                         }
                         .listStyle(.plain)
+                        .refreshable { await applyFilters() }
                     }
                 }
             }
             .background(Color.mmBackground)
             .navigationTitle("Audit Log")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if isSelecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isSelecting = false; selectedIds = [] }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
+                            .foregroundStyle(Color.mmError)
+                            .disabled(selectedIds.isEmpty)
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { showFilters = true } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                if activeFilterCount > 0 {
+                                    Circle().fill(Color.mmAccent).frame(width: 8, height: 8)
+                                        .offset(x: 2, y: -2)
+                                }
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            if let item = selectedItem {
+                                Button(role: .destructive) { deleteAlert = item } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Divider()
+                            } else {
+                                Text("Tap a row to select")
+                                Divider()
+                            }
+                            Button { isSelecting = true } label: {
+                                Label("Select Multiple", systemImage: "checkmark.circle")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showFilters) {
+                AuditLogFilterSheet(
+                    tableFilter: $tableFilter,
+                    actionFilter: $actionFilter,
+                    dateFrom: $dateFrom,
+                    dateTo: $dateTo,
+                    useDateFilter: $useDateFilter
+                ) { Task { await applyFilters() } }
+            }
+            .alert(item: $deleteAlert) { log in
+                Alert(
+                    title: Text("Delete Log Entry?"),
+                    message: Text("This cannot be undone."),
+                    primaryButton: .destructive(Text("Delete")) {
+                        Task { try? await vm.delete(log.id); selectedItem = nil }
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+            .alert("Delete \(selectedIds.count) log(s)?", isPresented: $bulkDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    let ids = Array(selectedIds)
+                    Task { try? await vm.bulkDelete(ids); isSelecting = false; selectedIds = [] }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: { Text("This cannot be undone.") }
             .task { await vm.fetchAll(refresh: true) }
         }
+    }
+}
+
+// MARK: - Filter Sheet
+
+struct AuditLogFilterSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var tableFilter: AuditTableFilter
+    @Binding var actionFilter: AuditActionFilter
+    @Binding var dateFrom: Date
+    @Binding var dateTo: Date
+    @Binding var useDateFilter: Bool
+    let onApply: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Record Type") {
+                    ForEach(AuditTableFilter.allCases) { f in
+                        HStack {
+                            Image(systemName: f.icon).foregroundStyle(Color.mmPrimary).frame(width: 20)
+                            Text(f.label)
+                            Spacer()
+                            if tableFilter == f {
+                                Image(systemName: "checkmark").foregroundStyle(Color.mmPrimary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { tableFilter = f }
+                    }
+                }
+
+                Section("Action") {
+                    ForEach(AuditActionFilter.allCases) { f in
+                        HStack {
+                            Circle().fill(f == .all ? Color.mmTextSecondary : f.color)
+                                .frame(width: 8, height: 8)
+                            Text(f.label)
+                            Spacer()
+                            if actionFilter == f {
+                                Image(systemName: "checkmark").foregroundStyle(Color.mmPrimary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { actionFilter = f }
+                    }
+                }
+
+                Section {
+                    Toggle("Filter by Date Range", isOn: $useDateFilter)
+                    if useDateFilter {
+                        DatePicker("From", selection: $dateFrom, displayedComponents: .date)
+                        DatePicker("To",   selection: $dateTo,   in: dateFrom..., displayedComponents: .date)
+                    }
+                } header: { Text("Date Range") }
+            }
+            .navigationTitle("Filter Audit Log")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Reset") {
+                        tableFilter = .all; actionFilter = .all; useDateFilter = false
+                        onApply(); dismiss()
+                    }
+                    .foregroundStyle(Color.mmError)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Apply") { onApply(); dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct AuditFilterChip: View {
+    let label: String
+    var icon: String? = nil
+    var color: Color = .mmPrimary
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon { Image(systemName: icon).font(.system(size: 11)) }
+            Text(label).font(.system(size: 12, weight: .medium))
+            Button { onRemove() } label: {
+                Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
+            }
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(color.opacity(0.12))
+        .cornerRadius(20)
     }
 }
 
@@ -180,25 +482,57 @@ struct AuditLogRow: View {
 
     var actionColor: Color {
         switch log.action {
-        case "create": return .mmSuccess
-        case "delete": return .mmError
-        default:       return .mmPrimary
+        case "created":          return .mmSuccess
+        case "deleted":          return .mmError
+        case "password_changed": return .mmWarning
+        default:                 return .mmPrimary
+        }
+    }
+
+    var tableLabel: String {
+        switch log.tableName {
+        case "daily_cash_entries":       return "Cash Entry"
+        case "daily_card_entries":       return "Card Entry"
+        case "card_accounts":            return "Card Account"
+        case "self_transactions":        return "Self Transfer"
+        case "cash_transactions":        return "Cash Transfer"
+        case "admin_cash_adjustments":   return "Cash Adj."
+        case "admin_card_adjustments":   return "Card Adj."
+        case "showrooms":                return "Showroom"
+        case "users":                    return "User"
+        default:                         return log.tableName
+        }
+    }
+
+    var actionLabel: String {
+        switch log.action {
+        case "created":          return "Created"
+        case "updated":          return "Updated"
+        case "deleted":          return "Deleted"
+        case "password_changed": return "Pwd Changed"
+        default:                 return log.action.capitalized
         }
     }
 
     var body: some View {
         RowCard {
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    StatusBadge(text: log.action, color: actionColor)
-                    Text(log.tableName).font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    StatusBadge(text: actionLabel, color: actionColor)
+                    Text(tableLabel)
+                        .font(.system(size: 13, weight: .semibold))
                     Spacer()
-                    Text(log.createdAt?.displayDateTime ?? "").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    Text(log.createdAt?.displayDateTime ?? "")
+                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                 }
-                if let name = log.userName {
-                    Text("By: \(name)").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                HStack(spacing: 12) {
+                    if let name = log.userName {
+                        Label(name, systemImage: "person.circle")
+                            .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                    }
+                    Label("ID \(log.recordId)", systemImage: "number")
+                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                 }
-                Text("Record #\(log.recordId)").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 4)
@@ -281,77 +615,144 @@ struct SettingRow: View {
 // MARK: - Edit Window Settings
 
 struct EditWindowSettingsView: View {
-    @StateObject private var vm = SettingsViewModel()
-    @State private var startTime = ""
-    @State private var endTime = ""
+    @StateObject private var settingsVM = SettingsViewModel()
+    @StateObject private var windowVM   = EditWindowViewModel()
+    @State private var startDate = Date()
+    @State private var endDate   = Date()
     @State private var saveError: String?
     @State private var saved = false
 
     var body: some View {
-        Group {
-            if vm.isLoading && vm.settings.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(40)
-            } else {
-                Form {
-                    Section {
-                        Text("Set the daily time range during which staff are allowed to edit entries.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.mmTextSecondary)
-                    }
-                    Section("Window Hours (HH:MM)") {
-                        HStack {
-                            Text("Start Time")
-                            Spacer()
-                            TextField("e.g. 08:00", text: $startTime)
-                                .multilineTextAlignment(.trailing)
-                                .keyboardType(.numbersAndPunctuation)
-                                .frame(maxWidth: 100)
+        ScrollView {
+            VStack(spacing: 16) {
+                // Live status card
+                RowCard {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill((windowVM.isOpen ? Color.mmSuccess : Color.mmError).opacity(0.12))
+                                .frame(width: 52, height: 52)
+                            Image(systemName: windowVM.isOpen ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .font(.system(size: 26))
+                                .foregroundStyle(windowVM.isOpen ? Color.mmSuccess : Color.mmError)
                         }
-                        HStack {
-                            Text("End Time")
-                            Spacer()
-                            TextField("e.g. 20:00", text: $endTime)
-                                .multilineTextAlignment(.trailing)
-                                .keyboardType(.numbersAndPunctuation)
-                                .frame(maxWidth: 100)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(windowVM.isOpen ? "Editing is Open" : "Editing is Closed")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(windowVM.isOpen ? Color.mmSuccess : Color.mmError)
+                            if let s = windowVM.status {
+                                Text("Server time: \(to12h(s.serverTime))")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.mmTextSecondary)
+                            }
+                            Text("Current window: \(windowVM.windowHours)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.mmTextSecondary)
                         }
-                    }
-                    if let e = saveError {
-                        Section {
-                            Text(e).foregroundStyle(Color.mmError).font(.system(size: 13))
-                        }
-                    }
-                    if saved {
-                        Section {
-                            Label("Saved successfully", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(Color.mmSuccess)
-                                .font(.system(size: 13))
-                        }
-                    }
-                    Section {
-                        MMButton(title: "Save", isLoading: vm.isSubmitting) {
-                            Task { await saveWindow() }
-                        }
-                        .disabled(startTime.isEmpty || endTime.isEmpty)
+                        Spacer()
                     }
                 }
+
+                // Time pickers
+                RowCard {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Image(systemName: "clock.fill").foregroundStyle(Color.mmPrimary)
+                            Text("Set Window Hours")
+                                .font(.system(size: 14, weight: .semibold))
+                            Spacer()
+                        }
+                        Divider().padding(.vertical, 10)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Opens at").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                                DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                                    .labelsHidden()
+                                    .scaleEffect(1.1)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.mmTextSecondary)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("Closes at").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                                DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                                    .labelsHidden()
+                                    .scaleEffect(1.1)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        Divider().padding(.bottom, 10)
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                            Text("Staff can only submit and edit entries during this daily window.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.mmTextSecondary)
+                        }
+                    }
+                }
+
+                if let e = saveError { ErrorBanner(message: e) }
+
+                if saved {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
+                        Text("Window updated successfully").font(.system(size: 13)).foregroundStyle(Color.mmSuccess)
+                    }
+                    .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
+                }
+
+                MMButton(title: "Save Window", isLoading: settingsVM.isSubmitting) {
+                    Task { await saveWindow() }
+                }
             }
+            .padding(16)
         }
         .background(Color.mmBackground)
         .navigationTitle("Edit Window")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            await vm.fetchAll()
-            if let s = vm.settings.first(where: { $0.key == "edit_window_start" }) { startTime = s.value }
-            if let e = vm.settings.first(where: { $0.key == "edit_window_end" })   { endTime = e.value }
+            async let a: () = settingsVM.fetchAll()
+            async let b: () = windowVM.fetch()
+            _ = await (a, b)
+            if let s = settingsVM.settings.first(where: { $0.key == "edit_window_start" }) {
+                startDate = timeStringToDate(s.value)
+            }
+            if let e = settingsVM.settings.first(where: { $0.key == "edit_window_end" }) {
+                endDate = timeStringToDate(e.value)
+            }
         }
+    }
+
+    private func timeStringToDate(_ str: String) -> Date {
+        let parts = str.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return Date() }
+        var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = parts[0]; comps.minute = parts[1]
+        return Calendar.current.date(from: comps) ?? Date()
+    }
+
+    private func dateToTimeString(_ date: Date) -> String {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", comps.hour ?? 0, comps.minute ?? 0)
+    }
+
+    private func to12h(_ time: String) -> String {
+        let parts = time.split(separator: ":").map { Int($0) ?? 0 }
+        guard parts.count == 2 else { return time }
+        let h = parts[0]; let m = parts[1]
+        let period = h < 12 ? "AM" : "PM"
+        let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
+        return String(format: "%d:%02d %@", h12, m, period)
     }
 
     private func saveWindow() async {
         saveError = nil; saved = false
         do {
-            try await vm.update(key: "edit_window_start", value: startTime)
-            try await vm.update(key: "edit_window_end",   value: endTime)
+            try await settingsVM.update(key: "edit_window_start", value: dateToTimeString(startDate))
+            try await settingsVM.update(key: "edit_window_end",   value: dateToTimeString(endDate))
+            await windowVM.fetch()
             saved = true
         } catch {
             saveError = error.localizedDescription

@@ -4,7 +4,11 @@ struct ShowroomListView: View {
     @StateObject private var vm = ShowroomViewModel()
     @State private var showForm = false
     @State private var editTarget: Showroom?
+    @State private var selectedItem: Showroom?
     @State private var deleteAlert: Showroom?
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<Int> = []
+    @State private var bulkDeleteAlert = false
 
     var body: some View {
         NavigationStack {
@@ -16,14 +20,31 @@ struct ShowroomListView: View {
                 } else {
                     List {
                         ForEach(vm.showrooms) { s in
-                            NavigationLink(destination: ShowroomDetailView(showroom: s)) {
-                                ShowroomRow(showroom: s)
-                            }
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .swipeActions(edge: .trailing) {
-                                Button("Delete", role: .destructive) { deleteAlert = s }
-                                Button("Edit") { editTarget = s }.tint(Color.mmPrimary)
+                            if isSelecting {
+                                Button {
+                                    if selectedIds.contains(s.id) { selectedIds.remove(s.id) }
+                                    else { selectedIds.insert(s.id) }
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: selectedIds.contains(s.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedIds.contains(s.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                            .font(.system(size: 20))
+                                        ShowroomRow(showroom: s)
+                                    }
+                                }
+                                .listRowBackground(selectedIds.contains(s.id) ? Color.mmPrimary.opacity(0.1) : Color.clear)
+                                .listRowSeparator(.hidden)
+                            } else {
+                                NavigationLink(destination: ShowroomDetailView(showroom: s)) {
+                                    ShowroomRow(showroom: s)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture { selectedItem = selectedItem?.id == s.id ? nil : s }
+                                .listRowBackground(selectedItem?.id == s.id ? Color.mmPrimary.opacity(0.1) : Color.clear)
+                                .listRowSeparator(.hidden)
+                                .swipeActions(edge: .trailing) {
+                                    Button("Edit") { editTarget = s }.tint(Color.mmPrimary)
+                                }
                             }
                         }
                     }
@@ -34,9 +55,41 @@ struct ShowroomListView: View {
             .background(Color.mmBackground)
             .navigationTitle("Showrooms")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showForm = true } label: {
-                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                if isSelecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isSelecting = false; selectedIds = [] }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
+                            .foregroundStyle(Color.mmError)
+                            .disabled(selectedIds.isEmpty)
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { showForm = true } label: {
+                            Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            if let item = selectedItem {
+                                Button(role: .destructive) { deleteAlert = item } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Button { editTarget = item } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                Divider()
+                            } else {
+                                Text("Tap a row to select")
+                                Divider()
+                            }
+                            Button { isSelecting = true } label: {
+                                Label("Select Multiple", systemImage: "checkmark.circle")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
                     }
                 }
             }
@@ -51,10 +104,22 @@ struct ShowroomListView: View {
                     title: Text("Delete \(s.name)?"),
                     message: Text("This action cannot be undone."),
                     primaryButton: .destructive(Text("Delete")) {
-                        Task { try? await vm.delete(s.id) }
+                        Task { try? await vm.delete(s.id); selectedItem = nil }
                     },
                     secondaryButton: .cancel()
                 )
+            }
+            .alert("Delete \(selectedIds.count) showroom(s)?", isPresented: $bulkDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    let ids = Array(selectedIds)
+                    Task {
+                        try? await vm.bulkDelete(ids)
+                        isSelecting = false; selectedIds = []
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This action cannot be undone.")
             }
             .task { await vm.fetchAll() }
         }

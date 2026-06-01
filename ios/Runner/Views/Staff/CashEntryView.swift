@@ -6,6 +6,7 @@ struct CashEntryView: View {
     @StateObject private var vm = CashEntryViewModel()
     @StateObject private var editWindowVM = EditWindowViewModel()
 
+    @State private var selectedAccount: String = "main"
     @State private var mainAmount = ""
     @State private var manoAmount = ""
     @State private var mainNotes  = ""
@@ -53,23 +54,39 @@ struct CashEntryView: View {
                     .background(Color.mmCard)
                     .cornerRadius(14)
 
-                    // Main Account section
-                    entrySection(
-                        title: "Main Cash Account",
-                        icon: "banknote",
-                        amountBinding: $mainAmount,
-                        notesBinding: $mainNotes,
-                        accountType: "main"
-                    )
+                    // Account selector
+                    Picker("Account", selection: $selectedAccount) {
+                        Label("Main Cash", systemImage: "banknote").tag("main")
+                        Label("Mano's Cash", systemImage: "person.crop.circle.badge.checkmark").tag("mano")
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.vertical, 4)
 
-                    // Mano Account section
-                    entrySection(
-                        title: "Mano's Cash Account",
-                        icon: "person.crop.circle.badge.checkmark",
-                        amountBinding: $manoAmount,
-                        notesBinding: $manoNotes,
-                        accountType: "mano"
-                    )
+                    // Active account entry section
+                    if selectedAccount == "main" {
+                        entrySection(
+                            title: "Main Cash Account",
+                            icon: "banknote",
+                            amountBinding: $mainAmount,
+                            notesBinding: $mainNotes,
+                            accountType: "main"
+                        )
+                    } else {
+                        entrySection(
+                            title: "Mano's Cash Account",
+                            icon: "person.crop.circle.badge.checkmark",
+                            amountBinding: $manoAmount,
+                            notesBinding: $manoNotes,
+                            accountType: "mano"
+                        )
+                    }
+
+                    // Filled-in badges for the other account (if any)
+                    if selectedAccount == "main" && !manoAmount.isEmpty {
+                        filledBadge(label: "Mano's Cash", amount: manoAmount)
+                    } else if selectedAccount == "mano" && !mainAmount.isEmpty {
+                        filledBadge(label: "Main Cash", amount: mainAmount)
+                    }
 
                     MMButton(title: "Submit Entries",
                              isLoading: vm.isSubmitting) {
@@ -144,8 +161,29 @@ struct CashEntryView: View {
         .cornerRadius(14)
     }
 
-    private var editWindowClosedBanner: some View {
-        HStack(spacing: 10) {
+    @ViewBuilder
+    private func filledBadge(label: String, amount: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
+            Text("\(label): \(amount)")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.mmTextPrimary)
+            Spacer()
+            Button {
+                if label.contains("Mano") { manoAmount = ""; manoNotes = "" }
+                else { mainAmount = ""; mainNotes = "" }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(Color.mmTextSecondary)
+            }
+        }
+        .padding(12)
+        .background(Color.mmSuccess.opacity(0.08))
+        .cornerRadius(10)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmSuccess.opacity(0.25)))
+    }
+
+    private var editWindowClosedBanner: some View {        HStack(spacing: 10) {
             Image(systemName: "lock.circle.fill").foregroundStyle(Color.mmError)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Entry window is closed")

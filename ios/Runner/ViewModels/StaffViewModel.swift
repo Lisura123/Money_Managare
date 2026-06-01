@@ -48,6 +48,18 @@ final class StaffViewModel: ObservableObject {
             staffList[idx] = updated
         }
     }
+
+    func delete(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/staff/\(id)")
+        staffList.removeAll { $0.id == id }
+    }
+
+    func bulkDelete(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/staff/bulk-delete", body: ["ids": ids])
+        staffList.removeAll { ids.contains($0.id) }
+    }
 }
 
 // Convenience memberwise init for User (not Decodable path)

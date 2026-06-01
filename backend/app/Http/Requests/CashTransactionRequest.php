@@ -12,7 +12,6 @@ class CashTransactionRequest extends FormRequest
     {
         $toExternal = $this->to_external_account_id !== null;
         $toOthers   = ! $toExternal && $this->to_account_type === null;
-        $requireNotes = $toOthers || $toExternal;
 
         return [
             'from_account_type'      => ['required', 'string', 'in:main,mano'],
@@ -23,7 +22,7 @@ class CashTransactionRequest extends FormRequest
                 ? ['required', 'integer', 'exists:external_accounts,id']
                 : ['nullable'],
             'amount'                 => ['required', 'numeric', 'min:0.01'],
-            'notes'                  => [$requireNotes ? 'required' : 'nullable', 'string', 'max:1000'],
+            'notes'                  => ['nullable', 'string', 'max:1000'],
             'transaction_date'       => ['required', 'date', 'before_or_equal:today'],
         ];
     }

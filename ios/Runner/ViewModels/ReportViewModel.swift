@@ -60,7 +60,7 @@ final class ReportViewModel: ObservableObject {
         var q: [String: Any] = ["from": from, "to": to]
         if let s = showroomId { q["showroom_id"] = s }
         do {
-            report = try await api.get("/admin/reports", query: q)
+            report = try await api.get("/reports/summary", query: q)
         } catch { self.error = error.localizedDescription }
         isLoading = false
     }

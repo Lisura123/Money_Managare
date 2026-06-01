@@ -15,6 +15,7 @@ class AdminCashAdjustmentResource extends JsonResource
             'admin_id'             => $this->admin_id,
             'adjusted_amount'      => $this->adjusted_amount,
             'reason'               => $this->reason,
+            'cash_account_type'    => $this->whenLoaded('dailyCashEntry', fn () => $this->dailyCashEntry->cash_account_type),
             'admin'                => $this->whenLoaded('admin', fn () => new UserResource($this->admin)),
             'created_at'           => $this->created_at,
         ];

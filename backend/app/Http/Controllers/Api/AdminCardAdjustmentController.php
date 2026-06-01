@@ -31,7 +31,7 @@ class AdminCardAdjustmentController extends Controller
             return $adj;
         });
 
-        return response()->json(new AdminCardAdjustmentResource($adjustment->load('admin')), 201);
+        return response()->json(new AdminCardAdjustmentResource($adjustment->load('admin', 'dailyCardEntry.cardAccount')), 201);
     }
 
     public function index(DailyCardEntry $dailyCardEntry): JsonResponse
@@ -45,7 +45,7 @@ class AdminCardAdjustmentController extends Controller
      */
     public function all(Request $request): JsonResponse
     {
-        $query = AdminCardAdjustment::with(['admin', 'dailyCardEntry'])
+        $query = AdminCardAdjustment::with(['admin', 'dailyCardEntry.cardAccount'])
             ->orderByDesc('created_at');
 
         if ($request->filled('card_account_id')) {
@@ -95,7 +95,7 @@ class AdminCardAdjustmentController extends Controller
             return $adj;
         });
 
-        return response()->json(new AdminCardAdjustmentResource($adjustment->load('admin')), 201);
+        return response()->json(new AdminCardAdjustmentResource($adjustment->load('admin', 'dailyCardEntry.cardAccount')), 201);
     }
 
     public function destroy(AdminCardAdjustment $adminCardAdjustment): JsonResponse

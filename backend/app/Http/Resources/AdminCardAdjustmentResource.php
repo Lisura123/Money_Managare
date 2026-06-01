@@ -16,6 +16,8 @@ class AdminCardAdjustmentResource extends JsonResource
             'adjusted_amount'      => $this->adjusted_amount,
             'reason'               => $this->reason,
             'admin'                => $this->whenLoaded('admin', fn () => new UserResource($this->admin)),
+            'bank_name'            => $this->whenLoaded('dailyCardEntry', fn () => $this->dailyCardEntry->cardAccount?->bank_name),
+            'last_four'            => $this->whenLoaded('dailyCardEntry', fn () => $this->dailyCardEntry->cardAccount?->last_four),
             'created_at'           => $this->created_at,
         ];
     }

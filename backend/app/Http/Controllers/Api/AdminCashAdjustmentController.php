@@ -53,12 +53,15 @@ class AdminCashAdjustmentController extends Controller
      */
     public function storeForShowroom(AdminCashAdjustmentRequest $request): JsonResponse
     {
-        $showroomId = $request->input('showroom_id');
+        $cashAccountType = $request->input('cash_account_type', 'main');
+        $showroomId = $request->input('showroom_id')
+            ?? \App\Models\Showroom::orderBy('id')->value('id');
 
         $entry = DailyCashEntry::firstOrCreate(
             [
-                'showroom_id' => $showroomId,
-                'entry_date'  => now()->toDateString(),
+                'showroom_id'       => $showroomId,
+                'entry_date'        => now()->toDateString(),
+                'cash_account_type' => $cashAccountType,
             ],
             [
                 'user_id'     => $request->user()->id,
@@ -74,7 +77,7 @@ class AdminCashAdjustmentController extends Controller
             'reason'              => $request->reason,
         ]);
 
-        return response()->json(new AdminCashAdjustmentResource($adjustment->load('admin')), 201);
+        return response()->json(new AdminCashAdjustmentResource($adjustment->load('admin', 'dailyCashEntry')), 201);
     }
 
     public function destroy(AdminCashAdjustment $adminCashAdjustment): JsonResponse

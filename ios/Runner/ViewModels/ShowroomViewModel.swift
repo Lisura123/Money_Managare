@@ -45,4 +45,10 @@ final class ShowroomViewModel: ObservableObject {
         let _: Msg = try await api.delete("/showrooms/\(id)")
         showrooms.removeAll { $0.id == id }
     }
+
+    func bulkDelete(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/showrooms/bulk-delete", body: ["ids": ids])
+        showrooms.removeAll { ids.contains($0.id) }
+    }
 }

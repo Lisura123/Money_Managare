@@ -4,6 +4,11 @@ struct StaffListView: View {
     @StateObject private var vm = StaffViewModel()
     @State private var showForm = false
     @State private var editTarget: User?
+    @State private var selectedItem: User?
+    @State private var deleteAlert: User?
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<Int> = []
+    @State private var bulkDeleteAlert = false
 
     var body: some View {
         NavigationStack {
@@ -16,14 +21,36 @@ struct StaffListView: View {
                     List {
                         ForEach(vm.staffList) { u in
                             StaffRow(user: u)
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .swipeActions(edge: .trailing) {
-                                    Button(u.isActive ? "Deactivate" : "Activate") {
-                                        Task { try? await vm.toggleActive(u.id) }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if isSelecting {
+                                        if selectedIds.contains(u.id) { selectedIds.remove(u.id) }
+                                        else { selectedIds.insert(u.id) }
+                                    } else {
+                                        selectedItem = selectedItem?.id == u.id ? nil : u
                                     }
-                                    .tint(u.isActive ? Color.mmWarning : Color.mmSuccess)
-                                    Button("Edit") { editTarget = u }.tint(Color.mmPrimary)
+                                }
+                                .listRowBackground(
+                                    (isSelecting ? selectedIds.contains(u.id) : selectedItem?.id == u.id)
+                                        ? Color.mmPrimary.opacity(0.1) : Color.clear
+                                )
+                                .listRowSeparator(.hidden)
+                                .overlay(alignment: .leading) {
+                                    if isSelecting {
+                                        Image(systemName: selectedIds.contains(u.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedIds.contains(u.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                            .font(.system(size: 20))
+                                            .padding(.leading, 20)
+                                    }
+                                }
+                                .swipeActions(edge: .trailing) {
+                                    if !isSelecting {
+                                        Button(u.isActive ? "Deactivate" : "Activate") {
+                                            Task { try? await vm.toggleActive(u.id) }
+                                        }
+                                        .tint(u.isActive ? Color.mmWarning : Color.mmSuccess)
+                                        Button("Edit") { editTarget = u }.tint(Color.mmPrimary)
+                                    }
                                 }
                         }
                     }
@@ -34,9 +61,38 @@ struct StaffListView: View {
             .background(Color.mmBackground)
             .navigationTitle("Staff")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showForm = true } label: {
-                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                if isSelecting {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { isSelecting = false; selectedIds = [] }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
+                            .foregroundStyle(Color.mmError)
+                            .disabled(selectedIds.isEmpty)
+                    }
+                } else {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { showForm = true } label: {
+                            Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            if let item = selectedItem {
+                                Button(role: .destructive) { deleteAlert = item } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Divider()
+                            } else {
+                                Text("Tap a row to select")
+                                Divider()
+                            }
+                            Button { isSelecting = true } label: {
+                                Label("Select Multiple", systemImage: "checkmark.circle")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
                     }
                 }
             }
@@ -46,6 +102,23 @@ struct StaffListView: View {
             .sheet(item: $editTarget) { u in
                 StaffFormView(existing: u) { await vm.fetchAll() }
             }
+            .alert(item: $deleteAlert) { u in
+                Alert(
+                    title: Text("Delete \(u.name)?"),
+                    message: Text("This cannot be undone."),
+                    primaryButton: .destructive(Text("Delete")) {
+                        Task { try? await vm.delete(u.id); selectedItem = nil }
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+            .alert("Delete \(selectedIds.count) staff member(s)?", isPresented: $bulkDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    let ids = Array(selectedIds)
+                    Task { try? await vm.bulkDelete(ids); isSelecting = false; selectedIds = [] }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: { Text("This cannot be undone.") }
             .task { await vm.fetchAll() }
         }
     }

@@ -4,6 +4,7 @@ import Foundation
 final class CashTransactionViewModel: ObservableObject {
     @Published var transactions: [CashTransaction] = []
     @Published var externalAccounts: [ExternalAccount] = []
+    @Published var mainCashBalance: Double = 0
     @Published var isLoading = false
     @Published var isSubmitting = false
     @Published var error: String?
@@ -34,6 +35,13 @@ final class CashTransactionViewModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
+    func fetchMainCashBalance() async {
+        do {
+            let summary: DashboardSummary = try await api.get("/admin/dashboard-summary")
+            mainCashBalance = summary.today.cashMainAdjusted
+        } catch { /* silently ignore */ }
+    }
+
     func create(fromAccountType: String, toAccountType: String?,
                 toExternalAccountId: Int?, amount: Double,
                 notes: String?, transactionDate: String) async throws {
@@ -48,5 +56,17 @@ final class CashTransactionViewModel: ObservableObject {
         if let n = notes, !n.isEmpty     { body["notes"] = n }
         let new: CashTransaction = try await api.post("/cash-transactions", body: body)
         transactions.insert(new, at: 0)
+    }
+
+    func delete(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/cash-transactions/\(id)")
+        transactions.removeAll { $0.id == id }
+    }
+
+    func bulkDelete(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/cash-transactions/bulk-delete", body: ["ids": ids])
+        transactions.removeAll { ids.contains($0.id) }
     }
 }

@@ -42,4 +42,16 @@ final class SelfTransactionViewModel: ObservableObject {
         transactions.insert(new, at: 0)
         NotificationCenter.default.post(name: .balancesDidChange, object: nil)
     }
+
+    func delete(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/self-transactions/\(id)")
+        transactions.removeAll { $0.id == id }
+    }
+
+    func bulkDelete(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/self-transactions/bulk-delete", body: ["ids": ids])
+        transactions.removeAll { ids.contains($0.id) }
+    }
 }

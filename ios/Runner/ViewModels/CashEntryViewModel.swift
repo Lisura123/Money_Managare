@@ -12,6 +12,8 @@ final class CashEntryViewModel: ObservableObject {
     @Published var totalEntries: Int = 0
     @Published var hasMore = true
     @Published var historyHasMore = true
+    @Published var mainCashBalance: Double = 0
+    @Published var manoCashBalance: Double = 0
 
     private var entriesPage = 1
     private var historyPage = 1
@@ -103,11 +105,50 @@ final class CashEntryViewModel: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
-    func createAdjustment(cashEntryId: Int, adjustedAmount: Double, reason: String?) async throws {
-        var body: [String: Any] = ["cash_entry_id": cashEntryId, "adjusted_amount": adjustedAmount]
-        if let r = reason, !r.isEmpty { body["reason"] = r }
+    func fetchCashBalances() async {
+        async let summaryTask: DashboardSummary = api.get("/admin/dashboard-summary")
+        async let accountsTask: [ExternalAccount] = api.get("/external-accounts")
+        do {
+            let (summary, accounts) = try await (summaryTask, accountsTask)
+            mainCashBalance = summary.today.cashMainAdjusted
+            manoCashBalance = accounts.first(where: { $0.cashAccountType == "mano" })?.balance
+                ?? summary.today.cashManoAdjusted
+        } catch { /* silently ignore */ }
+    }
+
+    func createAdjustment(adjustedAmount: Double, reason: String, cashAccountType: String) async throws {
+        isSubmitting = true; defer { isSubmitting = false }
+        let body: [String: Any] = [
+            "adjusted_amount": adjustedAmount,
+            "reason": reason,
+            "cash_account_type": cashAccountType
+        ]
         let new: AdminCashAdjustment = try await api.post("/adjustments/cash", body: body)
-        adjustments.append(new)
+        adjustments.insert(new, at: 0)
+    }
+
+    func deleteEntry(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/cash-entries/\(id)")
+        entries.removeAll { $0.id == id }
+    }
+
+    func deleteAdjustment(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/adjustments/cash/\(id)")
+        adjustments.removeAll { $0.id == id }
+    }
+
+    func bulkDeleteEntries(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/cash-entries/bulk-delete", body: ["ids": ids])
+        entries.removeAll { ids.contains($0.id) }
+    }
+
+    func bulkDeleteAdjustments(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/adjustments/cash/bulk-delete", body: ["ids": ids])
+        adjustments.removeAll { ids.contains($0.id) }
     }
 
     // MARK: - Helpers

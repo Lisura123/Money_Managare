@@ -7,6 +7,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
     let adminName: String?
     let adjustedAmount: Double
     let reason: String?
+    let cashAccountType: String?
     let createdAt: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -17,6 +18,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
         case admin
         case adjustedAmount   = "adjusted_amount"
         case reason
+        case cashAccountType  = "cash_account_type"
         case createdAt        = "created_at"
     }
 
@@ -29,6 +31,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
         reason    = try? c.decode(String.self, forKey: .reason)
         createdAt = try? c.decode(String.self, forKey: .createdAt)
         adminName = (try? c.decode(NameNested.self, forKey: .admin))?.name
+        cashAccountType = try? c.decode(String.self, forKey: .cashAccountType)
 
         cashEntryId = (try? c.decode(Int.self, forKey: .cashEntryId))
             ?? (try? c.decode(Int.self, forKey: .dailyCashEntryId)) ?? 0
@@ -46,6 +49,13 @@ struct AdminCardAdjustment: Decodable, Identifiable {
     let adjustedAmount: Double
     let reason: String?
     let createdAt: String?
+    let bankName: String?
+    let lastFour: String?
+
+    var accountLabel: String {
+        if let b = bankName, let l = lastFour { return "\(b) •••• \(l)" }
+        return "Entry #\(cardEntryId)"
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -56,6 +66,8 @@ struct AdminCardAdjustment: Decodable, Identifiable {
         case adjustedAmount   = "adjusted_amount"
         case reason
         case createdAt        = "created_at"
+        case bankName         = "bank_name"
+        case lastFour         = "last_four"
     }
 
     private struct NameNested: Decodable { let name: String }
@@ -67,6 +79,8 @@ struct AdminCardAdjustment: Decodable, Identifiable {
         reason    = try? c.decode(String.self, forKey: .reason)
         createdAt = try? c.decode(String.self, forKey: .createdAt)
         adminName = (try? c.decode(NameNested.self, forKey: .admin))?.name
+        bankName  = try? c.decode(String.self, forKey: .bankName)
+        lastFour  = try? c.decode(String.self, forKey: .lastFour)
 
         cardEntryId = (try? c.decode(Int.self, forKey: .cardEntryId))
             ?? (try? c.decode(Int.self, forKey: .dailyCardEntryId)) ?? 0

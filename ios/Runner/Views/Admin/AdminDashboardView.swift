@@ -7,6 +7,21 @@ struct AdminDashboardView: View {
     @StateObject private var cardVM = CardAccountViewModel()
     @StateObject private var extVM  = ExternalAccountViewModel()
     @State private var showEditRequests = false
+    @State private var balancesShowroomFilter: Int? = nil
+
+    private var availableBalanceShowrooms: [(id: Int, name: String)] {
+        var seen = Set<Int>()
+        return cardVM.accounts.compactMap { acc -> (id: Int, name: String)? in
+            let id = acc.showroomId
+            guard let name = acc.showroomName else { return nil }
+            return seen.insert(id).inserted ? (id: id, name: name) : nil
+        }.sorted { $0.name < $1.name }
+    }
+
+    private var filteredBalanceCards: [CardAccount] {
+        guard let id = balancesShowroomFilter else { return cardVM.accounts }
+        return cardVM.accounts.filter { $0.showroomId == id }
+    }
 
     var body: some View {
         NavigationStack {
@@ -135,34 +150,42 @@ struct AdminDashboardView: View {
             }
         }
 
-        // Yesterday — 4 cards: Main Cash, Mano Cash, Card Total, Grand Total
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(title: "Yesterday")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                StatCard(title: "Main Cash",  value: s.yesterday.cashMainTotal.currency, color: Color.mmTextSecondary)
-                StatCard(title: "Mano Cash",  value: s.yesterday.cashManoTotal.currency, color: Color.mmTextSecondary)
-                StatCard(title: "Card Total", value: s.yesterday.cardTotal.currency,     color: Color.mmTextSecondary)
-                StatCard(title: "Grand Total",value: s.yesterday.grandTotal.currency,    color: .mmPrimary)
-            }
-        }
-
         // Live account balances
         if !cardVM.accounts.isEmpty || !extVM.accounts.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader(title: "Account Balances")
 
-                // External accounts (Mano etc.) — live balance, updates with self-transfers
+                // Showroom filter chips (shown when there are multiple showrooms)
+                if availableBalanceShowrooms.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(label: "All", isSelected: balancesShowroomFilter == nil) {
+                                balancesShowroomFilter = nil
+                            }
+                            ForEach(availableBalanceShowrooms, id: \.id) { s in
+                                FilterChip(label: s.name, isSelected: balancesShowroomFilter == s.id) {
+                                    balancesShowroomFilter = s.id
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 2)
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                // Cash accounts (Main Account first, then external like Mano's)
                 ForEach(extVM.accounts) { acc in
+                    let isMain = acc.cashAccountType == "main"
                     LiveBalanceRow(
-                        icon: "banknote",
-                        iconColor: .mmAccent,
+                        icon: isMain ? "building.columns.fill" : "banknote",
+                        iconColor: isMain ? .mmPrimary : .mmAccent,
                         label: acc.name,
                         balance: acc.balance
                     )
                 }
 
-                // Card accounts
-                ForEach(cardVM.accounts) { acc in
+                // Card accounts (filtered by showroom when selected)
+                ForEach(filteredBalanceCards) { acc in
                     LiveBalanceRow(
                         icon: "creditcard.fill",
                         iconColor: Color(hex: "6366F1"),
@@ -171,10 +194,10 @@ struct AdminDashboardView: View {
                     )
                 }
 
-                // Card total
-                let cardTotal = cardVM.accounts.reduce(0.0) { $0 + $1.currentBalance }
+                // Card total (reflects active filter)
+                let cardTotal = filteredBalanceCards.reduce(0.0) { $0 + $1.currentBalance }
                 HStack {
-                    Text("Card Total")
+                    Text(balancesShowroomFilter == nil ? "Card Total" : "Filtered Card Total")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.mmTextSecondary)
                     Spacer()

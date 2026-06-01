@@ -21,6 +21,11 @@ struct TransactionsHubView: View {
 struct SelfTransactionListView: View {
     @StateObject private var vm = SelfTransactionViewModel()
     @State private var showForm = false
+    @State private var selectedItem: SelfTransaction?
+    @State private var deleteAlert: SelfTransaction?
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<Int> = []
+    @State private var bulkDeleteAlert = false
 
     var body: some View {
         Group {
@@ -32,8 +37,28 @@ struct SelfTransactionListView: View {
                 List {
                     ForEach(vm.transactions) { t in
                         SelfTxRow(tx: t)
-                            .listRowBackground(Color.clear)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if isSelecting {
+                                    if selectedIds.contains(t.id) { selectedIds.remove(t.id) }
+                                    else { selectedIds.insert(t.id) }
+                                } else {
+                                    selectedItem = selectedItem?.id == t.id ? nil : t
+                                }
+                            }
+                            .listRowBackground(
+                                (isSelecting ? selectedIds.contains(t.id) : selectedItem?.id == t.id)
+                                    ? Color.mmPrimary.opacity(0.1) : Color.clear
+                            )
                             .listRowSeparator(.hidden)
+                            .overlay(alignment: .leading) {
+                                if isSelecting {
+                                    Image(systemName: selectedIds.contains(t.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selectedIds.contains(t.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                        .font(.system(size: 20))
+                                        .padding(.leading, 20)
+                                }
+                            }
                     }
                 }
                 .listStyle(.plain)
@@ -43,15 +68,61 @@ struct SelfTransactionListView: View {
         .background(Color.mmBackground)
         .navigationTitle("Self Transfers").navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showForm = true } label: {
-                    Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+            if isSelecting {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
+                        .foregroundStyle(Color.mmError)
+                        .disabled(selectedIds.isEmpty)
+                }
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showForm = true } label: {
+                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        if let item = selectedItem {
+                            Button(role: .destructive) { deleteAlert = item } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            Divider()
+                        } else {
+                            Text("Tap a row to select")
+                            Divider()
+                        }
+                        Button { isSelecting = true } label: {
+                            Label("Select Multiple", systemImage: "checkmark.circle")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                 }
             }
         }
         .sheet(isPresented: $showForm) {
             SelfTransactionFormView { await vm.fetchAll(refresh: true) }
         }
+        .alert(item: $deleteAlert) { t in
+            Alert(
+                title: Text("Delete Transfer?"),
+                message: Text("This cannot be undone."),
+                primaryButton: .destructive(Text("Delete")) {
+                    Task { try? await vm.delete(t.id); selectedItem = nil }
+                },
+                secondaryButton: .cancel()
+            )
+        }
+        .alert("Delete \(selectedIds.count) transfer(s)?", isPresented: $bulkDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                let ids = Array(selectedIds)
+                Task { try? await vm.bulkDelete(ids); isSelecting = false; selectedIds = [] }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This cannot be undone.") }
         .task { await vm.fetchAll() }
     }
 }
@@ -251,38 +322,152 @@ private struct BalancePreviewRow: View {
 struct CashTransactionListView: View {
     @StateObject private var vm = CashTransactionViewModel()
     @State private var showForm = false
+    @State private var selectedItem: CashTransaction?
+    @State private var deleteAlert: CashTransaction?
+    @State private var isSelecting = false
+    @State private var selectedIds: Set<Int> = []
+    @State private var bulkDeleteAlert = false
 
     var body: some View {
-        Group {
-            if vm.isLoading && vm.transactions.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(40)
-            } else if vm.transactions.isEmpty {
-                EmptyStateView(icon: "arrow.left.arrow.right.circle.fill", message: "No cash transfers")
-            } else {
-                List {
-                    ForEach(vm.transactions) { t in
-                        CashTxRow(tx: t)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+        List {
+            // Main Cash Balance card header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Main Cash Balance")
+                        .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                    if vm.mainCashBalance == 0 && vm.isLoading {
+                        ProgressView().scaleEffect(0.7)
+                    } else {
+                        Text(vm.mainCashBalance.currency)
+                            .font(.system(size: 26, weight: .bold)).foregroundStyle(Color.mmPrimary)
                     }
                 }
-                .listStyle(.plain)
-                .refreshable { await vm.fetchAll() }
+                Spacer()
+                Image(systemName: "banknote.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Color.mmPrimary.opacity(0.2))
+            }
+            .padding(20)
+            .background(Color.mmCard)
+            .cornerRadius(16)
+            .listRowBackground(Color.mmBackground)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+
+            if vm.isLoading && vm.transactions.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding(40)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else if vm.transactions.isEmpty {
+                EmptyStateView(icon: "arrow.left.arrow.right.circle.fill", message: "No cash transfers")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                ForEach(vm.transactions) { t in
+                    CashTxRow(tx: t)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if isSelecting {
+                                if selectedIds.contains(t.id) { selectedIds.remove(t.id) }
+                                else { selectedIds.insert(t.id) }
+                            } else {
+                                selectedItem = selectedItem?.id == t.id ? nil : t
+                            }
+                        }
+                        .listRowBackground(
+                            (isSelecting ? selectedIds.contains(t.id) : selectedItem?.id == t.id)
+                                ? Color.mmPrimary.opacity(0.1) : Color.clear
+                        )
+                        .listRowSeparator(.hidden)
+                        .overlay(alignment: .leading) {
+                            if isSelecting {
+                                Image(systemName: selectedIds.contains(t.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedIds.contains(t.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                    .font(.system(size: 20))
+                                    .padding(.leading, 20)
+                            }
+                        }
+                        .onAppear {
+                            if t.id == vm.transactions.last?.id {
+                                Task { await vm.fetchAll() }
+                            }
+                        }
+                }
             }
         }
+        .listStyle(.plain)
         .background(Color.mmBackground)
+        .refreshable {
+            async let a: () = vm.fetchAll(refresh: true)
+            async let b: () = vm.fetchMainCashBalance()
+            _ = await (a, b)
+        }
         .navigationTitle("Cash Transfers").navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showForm = true } label: {
-                    Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+            if isSelecting {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
+                        .foregroundStyle(Color.mmError)
+                        .disabled(selectedIds.isEmpty)
+                }
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showForm = true } label: {
+                        Image(systemName: "plus.circle.fill").foregroundStyle(Color.mmPrimary)
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        if let item = selectedItem {
+                            Button(role: .destructive) { deleteAlert = item } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            Divider()
+                        } else {
+                            Text("Tap a row to select")
+                            Divider()
+                        }
+                        Button { isSelecting = true } label: {
+                            Label("Select Multiple", systemImage: "checkmark.circle")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
                 }
             }
         }
         .sheet(isPresented: $showForm) {
-            CashTransactionFormView { await vm.fetchAll() }
+            CashTransactionFormView {
+                async let a: () = vm.fetchAll(refresh: true)
+                async let b: () = vm.fetchMainCashBalance()
+                _ = await (a, b)
+            }
         }
-        .task { await vm.fetchAll() }
+        .alert(item: $deleteAlert) { t in
+            Alert(
+                title: Text("Delete Transfer?"),
+                message: Text("This cannot be undone."),
+                primaryButton: .destructive(Text("Delete")) {
+                    Task { try? await vm.delete(t.id); selectedItem = nil }
+                },
+                secondaryButton: .cancel()
+            )
+        }
+        .alert("Delete \(selectedIds.count) transfer(s)?", isPresented: $bulkDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                let ids = Array(selectedIds)
+                Task { try? await vm.bulkDelete(ids); isSelecting = false; selectedIds = [] }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: { Text("This cannot be undone.") }
+        .task {
+            async let a: () = vm.fetchAll()
+            async let b: () = vm.fetchMainCashBalance()
+            _ = await (a, b)
+        }
     }
 }
 
@@ -311,24 +496,18 @@ struct CashTransactionFormView: View {
     let onSave: () async -> Void
 
     @StateObject private var vm = CashTransactionViewModel()
-    @State private var selectedExtId: Int?
-    @State private var type = "in"
     @State private var amount = ""
     @State private var notes = ""
     @State private var error: String?
-
-    private let types = ["in", "out"]
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Transfer Details") {
-                    Picker("External Account", selection: $selectedExtId) {
-                        Text("Select…").tag(Optional<Int>.none)
-                        ForEach(vm.externalAccounts) { a in Text(a.name).tag(Optional(a.id)) }
-                    }
-                    Picker("Type", selection: $type) {
-                        ForEach(types, id: \.self) { Text($0.capitalized).tag($0) }
+                    LabeledContent("Main Cash Balance") {
+                        Text(vm.mainCashBalance.currency)
+                            .foregroundStyle(Color.mmPrimary)
+                            .fontWeight(.semibold)
                     }
                     MMTextField(label: "Amount", text: $amount, keyboardType: .decimalPad)
                     MMTextField(label: "Notes (optional)", text: $notes)
@@ -340,24 +519,22 @@ struct CashTransactionFormView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(vm.isSubmitting || selectedExtId == nil || amount.isEmpty)
+                        .disabled(vm.isSubmitting || amount.isEmpty)
                 }
             }
-            .task { await vm.fetchExternalAccounts() }
+            .task { await vm.fetchMainCashBalance() }
         }
     }
 
     private func save() async {
-        guard let extId = selectedExtId, let amt = Double(amount) else { error = "Fill all fields"; return }
+        guard let amt = Double(amount) else { error = "Enter a valid amount"; return }
         do {
-            let fromType = type == "in" ? "external" : "main_cash"
-            let toType: String? = type == "in" ? "main_cash" : nil
-            let toExtId: Int? = type == "in" ? nil : extId
             let dateStr = ISO8601DateFormatter().string(from: Date()).prefix(10).description
-            try await vm.create(fromAccountType: fromType, toAccountType: toType,
-                                toExternalAccountId: toExtId, amount: amt,
+            try await vm.create(fromAccountType: "main", toAccountType: nil,
+                                toExternalAccountId: nil, amount: amt,
                                 notes: notes.isEmpty ? nil : notes, transactionDate: dateStr)
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }
     }
 }
+

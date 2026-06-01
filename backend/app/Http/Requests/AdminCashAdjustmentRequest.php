@@ -19,9 +19,10 @@ class AdminCashAdjustmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'adjusted_amount' => ['required', 'numeric'],
-            'reason'          => ['required', 'string', 'max:1000'],
-            'showroom_id'     => ['sometimes', 'integer', 'exists:showrooms,id'],
+            'adjusted_amount'  => ['required', 'numeric'],
+            'reason'           => ['required', 'string', 'max:1000'],
+            'showroom_id'      => ['sometimes', 'nullable', 'integer', 'exists:showrooms,id'],
+            'cash_account_type'=> ['sometimes', 'string', 'in:main,mano'],
         ];
     }
 }

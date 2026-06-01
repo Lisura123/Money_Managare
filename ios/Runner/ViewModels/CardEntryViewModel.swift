@@ -100,4 +100,35 @@ final class CardEntryViewModel: ObservableObject {
         let new: AdminCardAdjustment = try await api.post("/adjustments/card", body: body)
         adjustments.append(new)
     }
+
+    func createAdjustmentForAccount(cardAccountId: Int, adjustedAmount: Double, reason: String) async throws {
+        isSubmitting = true; defer { isSubmitting = false }
+        let body: [String: Any] = ["card_account_id": cardAccountId, "adjusted_amount": adjustedAmount, "reason": reason]
+        let new: AdminCardAdjustment = try await api.post("/adjustments/card", body: body)
+        adjustments.insert(new, at: 0)
+    }
+
+    func deleteEntry(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/card-entries/\(id)")
+        entries.removeAll { $0.id == id }
+    }
+
+    func deleteAdjustment(_ id: Int) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.delete("/adjustments/card/\(id)")
+        adjustments.removeAll { $0.id == id }
+    }
+
+    func bulkDeleteEntries(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/card-entries/bulk-delete", body: ["ids": ids])
+        entries.removeAll { ids.contains($0.id) }
+    }
+
+    func bulkDeleteAdjustments(_ ids: [Int]) async throws {
+        struct Msg: Decodable { let message: String }
+        let _: Msg = try await api.post("/adjustments/card/bulk-delete", body: ["ids": ids])
+        adjustments.removeAll { ids.contains($0.id) }
+    }
 }
