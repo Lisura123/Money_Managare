@@ -28,6 +28,9 @@ import CashEntriesAdminPage from './pages/admin/CashEntriesAdminPage'
 import CardEntriesAdminPage from './pages/admin/CardEntriesAdminPage'
 import EditRequestsAdminPage from './pages/admin/EditRequestsAdminPage'
 import SelfTransactionsPage from './pages/admin/SelfTransactionsPage'
+import CashTransactionsPage from './pages/admin/CashTransactionsPage'
+import CashAdjustmentsPage from './pages/admin/CashAdjustmentsPage'
+import CardAdjustmentsPage from './pages/admin/CardAdjustmentsPage'
 import ReportsPage from './pages/admin/ReportsPage'
 import AuditLogsPage from './pages/admin/AuditLogsPage'
 import SettingsAdminPage from './pages/admin/SettingsAdminPage'
@@ -134,6 +137,9 @@ function AppRoutes() {
           <Route path="/admin/card-entries" element={<CardEntriesAdminPage />} />
           <Route path="/admin/edit-requests" element={<EditRequestsAdminPage />} />
           <Route path="/admin/self-transactions" element={<SelfTransactionsPage />} />
+          <Route path="/admin/cash-transactions" element={<CashTransactionsPage />} />
+          <Route path="/admin/cash-adjustments" element={<CashAdjustmentsPage />} />
+          <Route path="/admin/card-adjustments" element={<CardAdjustmentsPage />} />
           <Route path="/admin/reports" element={<ReportsPage />} />
           <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
           <Route path="/admin/settings" element={<SettingsAdminPage />} />

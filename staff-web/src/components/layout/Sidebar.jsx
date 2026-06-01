@@ -15,6 +15,7 @@ import {
   MdSettings,
   MdStorefront,
   MdSwapHoriz,
+  MdTune,
   MdWallet,
 } from 'react-icons/md'
 import { NavLink, useNavigate } from 'react-router-dom'
@@ -47,6 +48,9 @@ const ADMIN_NAV = [
   { to: '/admin/card-entries', icon: MdCreditCard, label: 'Card Entries' },
   { to: '/admin/edit-requests', icon: MdEditNote, label: 'Edit Requests', badge: true },
   { to: '/admin/self-transactions', icon: MdSwapHoriz, label: 'Self Transactions' },
+  { to: '/admin/cash-transactions', icon: MdSwapHoriz, label: 'Cash Transfers' },
+  { to: '/admin/cash-adjustments', icon: MdTune, label: 'Cash Adjustments' },
+  { to: '/admin/card-adjustments', icon: MdTune, label: 'Card Adjustments' },
   { to: '/admin/reports', icon: MdBarChart, label: 'Reports' },
   { to: '/admin/audit-logs', icon: MdListAlt, label: 'Audit Logs' },
   { to: '/admin/settings', icon: MdSettings, label: 'Settings' },
