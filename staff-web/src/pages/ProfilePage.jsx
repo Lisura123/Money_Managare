@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom'
-import { MdChevronRight } from 'react-icons/md'
+import { MdChevronRight, MdKey, MdAccessTime, MdEditNote } from 'react-icons/md'
 import PageHeader from '../components/common/PageHeader'
 import Card from '../components/common/Card'
-import StatusBadge from '../components/common/StatusBadge'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import { useAuth } from '../hooks/useAuth'
 import { APP_VERSION, APP_NAME } from '../utils/constants'
@@ -24,48 +23,51 @@ export default function ProfilePage() {
   const showroomName = user.showroom?.name || '—'
 
   return (
-    <div className="max-w-md mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-md mx-auto space-y-4 animate-fade-in">
       <PageHeader title="My Profile" />
 
-      {/* Avatar + identity card */}
+      {/* User Info */}
       <Card>
-        <div className="flex flex-col items-center text-center py-4">
-          <div className="w-20 h-20 rounded-full bg-navy dark:bg-teal flex items-center justify-center mb-4 shadow-card">
-            <span className="text-2xl font-bold text-white dark:text-navy">{initials}</span>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-navy dark:bg-teal flex items-center justify-center flex-shrink-0 shadow-card">
+            <span className="text-xl font-bold text-white dark:text-navy">{initials}</span>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-            {user.name}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{user.email}</p>
-          <StatusBadge status="staff" label="Staff" />
-        </div>
-
-        <div className="border-t border-gray-100 dark:border-white/10 mt-4 pt-4 space-y-3">
-          <ProfileRow label="Showroom" value={showroomName} />
-          <ProfileRow label="Account status" value={user.is_active ? 'Active' : 'Inactive'} />
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{user.name}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{showroomName}</p>
+          </div>
         </div>
       </Card>
 
-      {/* Actions */}
-      <Card>
-        <div className="divide-y divide-gray-100 dark:divide-white/10">
-          <Link
-            to="/change-password"
-            className="flex items-center justify-between py-3 px-1 text-sm text-gray-700 dark:text-gray-200 hover:text-navy dark:hover:text-teal transition-colors group"
-          >
-            <span className="font-medium">Change Password</span>
-            <MdChevronRight className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" />
-          </Link>
-        </div>
-      </Card>
+      {/* Account */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-1">Account</p>
+        <Card>
+          <div className="divide-y divide-gray-100 dark:divide-white/10">
+            <NavRow icon={MdKey} label="Change Password" to="/change-password" />
+          </div>
+        </Card>
+      </div>
 
-      {/* Logout */}
+      {/* Edit Requests */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-1">Edit Requests</p>
+        <Card>
+          <div className="divide-y divide-gray-100 dark:divide-white/10">
+            <NavRow icon={MdEditNote} label="My Edit Requests" to="/edit-requests" />
+            <NavRow icon={MdAccessTime} label="Edit Window" to="/edit-window" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Sign Out */}
       <Card>
         <button
           onClick={() => setShowLogoutDialog(true)}
           className="btn-danger w-full"
         >
-          Log Out
+          Sign Out
         </button>
       </Card>
 
@@ -76,9 +78,9 @@ export default function ProfilePage() {
 
       <ConfirmDialog
         open={showLogoutDialog}
-        title="Log Out"
-        message="Are you sure you want to log out?"
-        confirmLabel="Log Out"
+        title="Sign Out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign Out"
         onConfirm={() => {
           setShowLogoutDialog(false)
           logout()
@@ -90,11 +92,17 @@ export default function ProfilePage() {
   )
 }
 
-function ProfileRow({ label, value }) {
+function NavRow({ icon: Icon, label, to }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-gray-500 dark:text-gray-400">{label}</span>
-      <span className="font-medium text-gray-900 dark:text-white">{value}</span>
-    </div>
+    <Link
+      to={to}
+      className="flex items-center justify-between py-3 px-1 text-sm text-gray-700 dark:text-gray-200 hover:text-navy dark:hover:text-teal transition-colors group"
+    >
+      <div className="flex items-center gap-2.5">
+        <Icon className="w-4 h-4 text-gray-400 group-hover:text-teal transition-colors" />
+        <span className="font-medium">{label}</span>
+      </div>
+      <MdChevronRight className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity" />
+    </Link>
   )
 }

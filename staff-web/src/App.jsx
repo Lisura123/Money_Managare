@@ -19,6 +19,7 @@ import EditRequestPage from './pages/EditRequestPage'
 import MyEditRequestsPage from './pages/MyEditRequestsPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import ProfilePage from './pages/ProfilePage'
+import EditWindowPage from './pages/EditWindowPage'
 
 // Pages — admin
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
@@ -123,6 +124,7 @@ function AppRoutes() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/edit-request/:entryType/:entryId" element={<EditRequestPage />} />
           <Route path="/edit-requests" element={<MyEditRequestsPage />} />
+          <Route path="/edit-window" element={<EditWindowPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>

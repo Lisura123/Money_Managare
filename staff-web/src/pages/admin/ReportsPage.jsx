@@ -54,7 +54,7 @@ export default function ReportsPage() {
   const today = new Date().toISOString().slice(0, 10)
 
   const { data: showroomsData } = useFetch(ENDPOINTS.SHOWROOMS)
-  const showrooms = showroomsData?.data || []
+  const showrooms = Array.isArray(showroomsData) ? showroomsData : (showroomsData?.data || [])
   // Card accounts are embedded in each showroom's card_accounts array
   const cardAccounts = showrooms.flatMap(s => (s.card_accounts || []).map(c => ({ ...c, showroomName: s.name })))
 

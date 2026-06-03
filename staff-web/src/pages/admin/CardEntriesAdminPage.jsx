@@ -121,7 +121,7 @@ export default function CardEntriesAdminPage() {
   const [deleting, setDeleting] = useState(false)
 
   const { data: showroomsData } = useFetch(ENDPOINTS.SHOWROOMS)
-  const showrooms = showroomsData?.data || []
+  const showrooms = Array.isArray(showroomsData) ? showroomsData : (showroomsData?.data || [])
 
   const params = useMemo(() => {
     const p = { page, per_page: 20 }
@@ -185,61 +185,69 @@ export default function CardEntriesAdminPage() {
 
       {error && <ErrorState message={error} onRetry={refetch} />}
 
-      {/* Table */}
-      <Card padding={false}>
-        {loading && entries.length === 0 ? (
-          <div className="p-8 text-center"><LoadingSpinner /></div>
-        ) : entries.length === 0 ? (
-          <div className="p-8"><EmptyState title="No entries found" /></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5">
-                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Showroom</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Staff</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Card Account</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-medium">Amount</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-medium">Adjusted</th>
-                  <th className="py-3 px-4"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map(entry => (
-                  <tr key={entry.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-4 text-navy dark:text-white font-medium">{formatDate(entry.entry_date)}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.showroom?.name}</td>
-                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{entry.user?.name}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs">{entry.card_account ? `${entry.card_account.bank_name} ···${entry.card_account.last_four}` : '—'}</td>
-                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(entry.amount)}</td>
-                    <td className="py-3 px-4 text-right font-medium text-navy dark:text-white">{formatCurrency(entry.adjustments?.length > 0 ? entry.adjustments[entry.adjustments.length - 1].adjusted_amount : entry.amount)}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1 justify-end">
-                        {!entry.is_locked && (
-                          <button onClick={() => setEditEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-teal hover:bg-teal/10 transition-colors" title="Edit"><MdEdit className="w-4 h-4" /></button>
-                        )}
-                        <button onClick={() => setAdjEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-500/10 transition-colors" title="Add Adjustment"><MdTune className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteTarget(entry)} className="p-1.5 rounded text-gray-400 hover:text-error hover:bg-red-500/10 transition-colors" title="Delete"><MdDelete className="w-4 h-4" /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* Entry List */}
+      {loading && entries.length === 0 ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map(i => <div key={i} className="card animate-pulse h-20 bg-gray-100 dark:bg-white/5" />)}
+        </div>
+      ) : entries.length === 0 ? (
+        <EmptyState title="No entries found" />
+      ) : (
+        <div className="space-y-2">
+          {entries.map(entry => {
+            const adjustedAmount = entry.adjustments?.length > 0
+              ? entry.adjustments[entry.adjustments.length - 1].adjusted_amount
+              : entry.amount
+            const isAdjusted = parseFloat(adjustedAmount) !== parseFloat(entry.amount)
+            const cardDisplay = entry.card_account
+              ? `${entry.card_account.bank_name} ····${entry.card_account.last_four}`
+              : '—'
+            return (
+              <div key={entry.id} className="card flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <p className="text-sm font-semibold text-navy dark:text-white">{formatDate(entry.entry_date)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{entry.user?.name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{entry.showroom?.name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{cardDisplay}</p>
+                </div>
+                <div className="text-right flex-shrink-0 space-y-0.5">
+                  <p className="text-base font-bold text-navy dark:text-white">{formatCurrency(adjustedAmount)}</p>
+                  {isAdjusted && (
+                    <p className="text-[10px] text-gray-400 line-through">{formatCurrency(entry.amount)}</p>
+                  )}
+                  {entry.is_locked && (
+                    <p className="text-[10px] text-amber-500 font-medium">Locked</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  {!entry.is_locked && (
+                    <button onClick={() => setEditEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-teal hover:bg-teal/10 transition-colors" title="Edit">
+                      <MdEdit className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button onClick={() => setAdjEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-500/10 transition-colors" title="Add Adjustment">
+                    <MdTune className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setDeleteTarget(entry)} className="p-1.5 rounded text-gray-400 hover:text-error hover:bg-red-500/10 transition-colors" title="Delete">
+                    <MdDelete className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-white/10">
-            <p className="text-xs text-gray-500">Page {page} of {totalPages} · {meta.total} entries</p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="btn-outline py-1 px-2 text-xs disabled:opacity-40">Prev</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="btn-outline py-1 px-2 text-xs disabled:opacity-40">Next</button>
-            </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-500">Page {page} of {totalPages} · {meta.total} entries</p>
+          <div className="flex gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="btn-outline py-1 px-2 text-xs disabled:opacity-40">Prev</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="btn-outline py-1 px-2 text-xs disabled:opacity-40">Next</button>
           </div>
-        )}
-      </Card>
+        </div>
+      )}
 
       <EditCardEntryModal
         open={!!editEntry}

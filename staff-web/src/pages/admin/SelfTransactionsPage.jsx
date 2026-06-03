@@ -226,7 +226,7 @@ export default function SelfTransactionsPage() {
   const total = transactions.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
 
   // Flatten card accounts from showrooms
-  const showrooms = showroomsData?.data || []
+  const showrooms = Array.isArray(showroomsData) ? showroomsData : (showroomsData?.data || [])
   const cardAccounts = showrooms.flatMap(s =>
     (s.card_accounts || []).map(c => ({ ...c, showroom_name: s.name }))
   )

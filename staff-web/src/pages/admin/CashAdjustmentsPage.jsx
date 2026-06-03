@@ -248,7 +248,7 @@ export default function CashAdjustmentsPage() {
       ) : loading && !adjustments.length ? (
         <div className="flex justify-center py-16"><LoadingSpinner /></div>
       ) : !adjustments.length ? (
-        <EmptyState icon={<MdTune className="w-8 h-8" />} title="No Cash Adjustments" message="Add your first adjustment above." />
+        <EmptyState icon={MdTune} title="No Cash Adjustments" description="Add your first adjustment above." />
       ) : (
         <div className="space-y-2">
           {adjustments.map(adj => (

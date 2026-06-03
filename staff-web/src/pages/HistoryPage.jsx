@@ -121,28 +121,21 @@ export default function HistoryPage() {
 
       <HistoryFilters filters={filters} onChange={handleFiltersChange} />
 
-      {/* Summary bar */}
+      {/* Summary bar — iOS-style 3-cell */}
       {!loading && allEntries.length > 0 && (
-        <div className="bg-white dark:bg-navy rounded-xl shadow-card px-4 py-3 flex flex-wrap gap-4 text-sm">
-          <span className="text-gray-500 dark:text-gray-400">
-            <strong className="text-gray-800 dark:text-white">{allEntries.length}</strong> entries
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            Cash:{' '}
-            <strong className="text-gray-800 dark:text-white">
-              {formatCurrency(totals.cashTotal)}
-            </strong>
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            Card:{' '}
-            <strong className="text-gray-800 dark:text-white">
-              {formatCurrency(totals.cardTotal)}
-            </strong>
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            Combined:{' '}
-            <strong className="text-teal">{formatCurrency(totals.combined)}</strong>
-          </span>
+        <div className="bg-white dark:bg-navy rounded-xl shadow-card flex divide-x divide-gray-200 dark:divide-white/10 text-sm">
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">Cash</p>
+            <p className="font-bold text-teal">{formatCurrency(totals.cashTotal)}</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">Card</p>
+            <p className="font-bold text-navy dark:text-white">{formatCurrency(totals.cardTotal)}</p>
+          </div>
+          <div className="flex-1 px-4 py-3 text-center">
+            <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">Total</p>
+            <p className="font-bold text-green-500">{formatCurrency(totals.combined)}</p>
+          </div>
         </div>
       )}
 

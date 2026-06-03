@@ -1,56 +1,128 @@
-import { useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { MdRefresh, MdEditNote, MdTrendingUp, MdTrendingDown, MdStorefront } from 'react-icons/md'
+import { useCallback, useEffect, useState } from 'react'
+import { MdRefresh, MdEditNote, MdCreditCard, MdAccountBalance, MdStorefront, MdAttachMoney } from 'react-icons/md'
 import Card from '../../components/common/Card'
-import PageHeader from '../../components/common/PageHeader'
 import { useFetch } from '../../hooks/useFetch'
 import { useAuth } from '../../hooks/useAuth'
 import { ENDPOINTS } from '../../utils/constants'
 import { formatCurrency, getGreeting } from '../../utils/formatters'
+import { Link } from 'react-router-dom'
 
 const POLL = 60_000
 
-function StatCard({ label, value, sub, color = 'teal' }) {
-  const colors = {
-    teal: 'bg-teal/10 text-teal',
-    blue: 'bg-blue-500/10 text-blue-500',
-    purple: 'bg-purple-500/10 text-purple-500',
-    amber: 'bg-amber-500/10 text-amber-600',
-  }
+// iOS AdjustedStatCard equivalent
+function StatCard({ label, adjValue, rawValue, colorClass }) {
+  const different = Math.abs((adjValue ?? 0) - (rawValue ?? 0)) > 0.001
   return (
     <div className="card">
-      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide mb-1">{label}</p>
-      <p className={`text-2xl font-heading font-bold ${color === 'teal' ? 'text-navy dark:text-white' : 'text-navy dark:text-white'}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sub}</p>}
+      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 leading-tight">{label}</p>
+      <p className={`text-xl font-heading font-bold leading-tight ${colorClass}`}>
+        {formatCurrency(adjValue ?? rawValue ?? 0)}
+      </p>
+      {different && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Raw: {formatCurrency(rawValue)}</p>
+      )}
+    </div>
+  )
+}
+
+// iOS ShowroomSnapshotRow equivalent
+function ShowroomRow({ snap }) {
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-2">
+        <p className="font-semibold text-navy dark:text-white text-sm">{snap.showroom_name}</p>
+        <p className="text-xs text-gray-400">{snap.entry_count} {snap.entry_count === 1 ? 'entry' : 'entries'}</p>
+      </div>
+      <div className="flex gap-4 flex-wrap">
+        <div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Cash Main</p>
+          <p className="text-sm font-medium text-navy dark:text-gray-200">{formatCurrency(snap.cash_main_adjusted ?? snap.cash_main_total)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Cash Mano</p>
+          <p className="text-sm font-medium text-navy dark:text-gray-200">{formatCurrency(snap.cash_mano_adjusted ?? snap.cash_mano_total)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Card</p>
+          <p className="text-sm font-medium text-navy dark:text-gray-200">{formatCurrency(snap.card_adjusted ?? snap.card_total)}</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Total</p>
+          <p className="text-sm font-bold text-teal">{formatCurrency(snap.combined_total)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// iOS LiveBalanceRow equivalent
+function BalanceRow({ icon: Icon, iconBg, iconColor, label, balance }) {
+  return (
+    <div className="card flex items-center gap-3">
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+        <Icon className={`w-4 h-4 ${iconColor}`} />
+      </div>
+      <p className="text-sm text-gray-700 dark:text-gray-200 flex-1 truncate">{label}</p>
+      <p className={`text-sm font-semibold ${balance < 0 ? 'text-red-500' : 'text-navy dark:text-white'}`}>
+        {formatCurrency(balance)}
+      </p>
     </div>
   )
 }
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
+  const [showroomFilter, setShowroomFilter] = useState(null)
 
   const { data, loading, error, refetch } = useFetch(ENDPOINTS.ADMIN_DASHBOARD_SUMMARY)
   const { data: pendingData, refetch: refetchPending } = useFetch(ENDPOINTS.ADMIN_EDIT_REQUESTS_PENDING_COUNT)
+  const { data: cardAccountsRaw, refetch: refetchCards } = useFetch(ENDPOINTS.CARD_ACCOUNTS)
+  const { data: extAccountsRaw, refetch: refetchExt } = useFetch(ENDPOINTS.EXTERNAL_ACCOUNTS)
 
   useEffect(() => {
     const t = setInterval(() => {
-      refetch(true)
-      refetchPending(true)
+      refetch(true); refetchPending(true); refetchCards(true); refetchExt(true)
     }, POLL)
     return () => clearInterval(t)
-  }, [refetch, refetchPending])
+  }, [refetch, refetchPending, refetchCards, refetchExt])
 
   const handleRefresh = useCallback(() => {
-    refetch()
-    refetchPending()
-  }, [refetch, refetchPending])
+    refetch(); refetchPending(); refetchCards(); refetchExt()
+  }, [refetch, refetchPending, refetchCards, refetchExt])
 
   const today = data?.today
-  const yesterday = data?.yesterday
   const pendingCount = pendingData?.count ?? 0
 
+  const cardAccounts = Array.isArray(cardAccountsRaw) ? cardAccountsRaw : (cardAccountsRaw?.data || [])
+  const extAccounts = Array.isArray(extAccountsRaw) ? extAccountsRaw : (extAccountsRaw?.data || [])
+
+  // Showroom filter options for Account Balances
+  const showroomOptions = [...new Map(
+    cardAccounts.filter(a => a.showroom?.name || a.showroom_name).map(a => {
+      const id = a.showroom_id
+      const name = a.showroom?.name || a.showroom_name
+      return [id, { id, name }]
+    })
+  ).values()].sort((a, b) => a.name.localeCompare(b.name))
+
+  const filteredCards = showroomFilter
+    ? cardAccounts.filter(a => a.showroom_id === showroomFilter)
+    : cardAccounts
+
+  const cardTotal = filteredCards.reduce((s, a) => s + (parseFloat(a.current_balance) || 0), 0)
+
+  const hasBalances = cardAccounts.length > 0 || extAccounts.length > 0
+
+  // Last updated display
+  const lastUpdated = data?.last_updated_at
+    ? (() => {
+        const d = new Date(data.last_updated_at)
+        return isNaN(d) ? data.last_updated_at : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })()
+    : null
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -92,89 +164,131 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Today's totals */}
-      <div>
-        <h2 className="font-heading font-semibold text-gray-700 dark:text-gray-300 text-sm uppercase tracking-wide mb-3">Today</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Cash (Main)" value={formatCurrency(today?.cash_main_adjusted ?? today?.cash_main_total)} sub={today?.cash_main_adjusted !== today?.cash_main_total ? `Raw: ${formatCurrency(today?.cash_main_total)}` : null} />
-          <StatCard label="Cash (Mano)" value={formatCurrency(today?.cash_mano_adjusted ?? today?.cash_mano_total)} color="blue" sub={today?.cash_mano_adjusted !== today?.cash_mano_total ? `Raw: ${formatCurrency(today?.cash_mano_total)}` : null} />
-          <StatCard label="Card Total" value={formatCurrency(today?.card_adjusted ?? today?.card_total)} color="purple" />
-          <StatCard label="Grand Total" value={formatCurrency(today?.grand_adjusted ?? today?.grand_total)} color="amber" />
-        </div>
-      </div>
-
-      {/* Yesterday comparison */}
-      {yesterday && (
-        <div>
-          <h2 className="font-heading font-semibold text-gray-700 dark:text-gray-300 text-sm uppercase tracking-wide mb-3">Yesterday</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Cash (Main)" value={formatCurrency(yesterday.cash_main_adjusted ?? yesterday.cash_main_total)} />
-            <StatCard label="Cash (Mano)" value={formatCurrency(yesterday.cash_mano_adjusted ?? yesterday.cash_mano_total)} color="blue" />
-            <StatCard label="Card Total" value={formatCurrency(yesterday.card_adjusted ?? yesterday.card_total)} color="purple" />
-            <StatCard label="Grand Total" value={formatCurrency(yesterday.grand_adjusted ?? yesterday.grand_total)} color="amber" />
+      {/* Today date + last updated row */}
+      {(data?.server_date || lastUpdated) && (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Today</p>
+            <p className="text-base font-bold text-navy dark:text-white">{data?.server_date}</p>
           </div>
+          {lastUpdated && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-right">
+              Last updated {lastUpdated}
+            </p>
+          )}
         </div>
       )}
 
-      {/* Per-showroom breakdown */}
+      {/* Today stat cards — 2×2 like iOS */}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard
+          label="Main Cash"
+          adjValue={today?.cash_main_adjusted}
+          rawValue={today?.cash_main_total}
+          colorClass="text-teal"
+        />
+        <StatCard
+          label="Mano Cash"
+          adjValue={today?.cash_mano_adjusted}
+          rawValue={today?.cash_mano_total}
+          colorClass="text-navy dark:text-white"
+        />
+        <StatCard
+          label="Card Total"
+          adjValue={today?.card_adjusted}
+          rawValue={today?.card_total}
+          colorClass="text-[#6366F1]"
+        />
+        <StatCard
+          label="Grand Total"
+          adjValue={today?.grand_adjusted}
+          rawValue={today?.grand_total}
+          colorClass="text-green-500 dark:text-green-400"
+        />
+      </div>
+
+      {/* Per Showroom — Today */}
       {today?.per_showroom?.length > 0 && (
-        <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <MdStorefront className="w-5 h-5 text-teal" />
-            <h2 className="font-heading font-semibold text-navy dark:text-white">Today by Showroom</h2>
-          </div>
-          <div className="overflow-x-auto -mx-4 md:mx-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-white/10">
-                  <th className="text-left py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Showroom</th>
-                  <th className="text-right py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Cash (Main)</th>
-                  <th className="text-right py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Cash (Mano)</th>
-                  <th className="text-right py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Card</th>
-                  <th className="text-right py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Total</th>
-                  <th className="text-right py-2 px-4 text-gray-500 dark:text-gray-400 font-medium">Entries</th>
-                </tr>
-              </thead>
-              <tbody>
-                {today.per_showroom.map((s) => (
-                  <tr key={s.showroom_id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-4 font-medium text-navy dark:text-white">{s.showroom_name}</td>
-                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(s.cash_main_adjusted ?? s.cash_main_total)}</td>
-                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(s.cash_mano_adjusted ?? s.cash_mano_total)}</td>
-                    <td className="py-3 px-4 text-right text-gray-700 dark:text-gray-300">{formatCurrency(s.card_adjusted ?? s.card_total)}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-navy dark:text-white">{formatCurrency(s.combined_total)}</td>
-                    <td className="py-3 px-4 text-right text-gray-500">{s.entry_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-gray-200 dark:border-white/20">
-                  <td className="py-3 px-4 font-semibold text-navy dark:text-white">Total</td>
-                  <td className="py-3 px-4 text-right font-semibold text-navy dark:text-white">{formatCurrency(today.cash_main_adjusted ?? today.cash_main_total)}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-navy dark:text-white">{formatCurrency(today.cash_mano_adjusted ?? today.cash_mano_total)}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-navy dark:text-white">{formatCurrency(today.card_adjusted ?? today.card_total)}</td>
-                  <td className="py-3 px-4 text-right font-bold text-teal">{formatCurrency(today.grand_adjusted ?? today.grand_total)}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-gray-500">{today.per_showroom.reduce((s, r) => s + (r.entry_count || 0), 0)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </Card>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Per Showroom — Today
+          </p>
+          {today.per_showroom.map(snap => (
+            <ShowroomRow key={snap.showroom_id} snap={snap} />
+          ))}
+        </div>
       )}
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { to: '/admin/showrooms', label: 'Showrooms' },
-          { to: '/admin/staff', label: 'Staff' },
-          { to: '/admin/cash-entries', label: 'Cash Entries' },
-          { to: '/admin/reports', label: 'Reports' },
-        ].map((l) => (
-          <Link key={l.to} to={l.to} className="card text-center text-sm font-medium text-teal hover:bg-teal/5 transition-colors cursor-pointer">
-            {l.label} →
-          </Link>
-        ))}
-      </div>
+      {/* Account Balances */}
+      {hasBalances && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Account Balances
+          </p>
+
+          {/* Showroom filter chips */}
+          {showroomOptions.length > 1 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setShowroomFilter(null)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  showroomFilter === null ? 'bg-teal text-white' : 'bg-teal/10 text-teal'
+                }`}
+              >
+                All
+              </button>
+              {showroomOptions.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setShowroomFilter(s.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    showroomFilter === s.id ? 'bg-teal text-white' : 'bg-teal/10 text-teal'
+                  }`}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* External (cash) accounts */}
+          {extAccounts.map(acc => {
+            const isMain = acc.cash_account_type === 'main'
+            return (
+              <BalanceRow
+                key={acc.id}
+                icon={isMain ? MdAccountBalance : MdAttachMoney}
+                iconBg={isMain ? 'bg-navy/10 dark:bg-white/10' : 'bg-teal/10'}
+                iconColor={isMain ? 'text-navy dark:text-white' : 'text-teal'}
+                label={acc.name}
+                balance={parseFloat(acc.balance) || 0}
+              />
+            )
+          })}
+
+          {/* Card accounts */}
+          {filteredCards.map(acc => (
+            <BalanceRow
+              key={acc.id}
+              icon={MdCreditCard}
+              iconBg="bg-[#6366F1]/10"
+              iconColor="text-[#6366F1]"
+              label={`${acc.bank_name} •••• ${acc.last_four}`}
+              balance={parseFloat(acc.current_balance) || 0}
+            />
+          ))}
+
+          {/* Card total */}
+          {filteredCards.length > 0 && (
+            <div className="card flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                {showroomFilter ? 'Filtered Card Total' : 'Card Total'}
+              </p>
+              <p className="text-sm font-bold text-[#6366F1]">{formatCurrency(cardTotal)}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -243,7 +243,7 @@ export default function ShowroomsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const showrooms = data?.data || []
+  const showrooms = Array.isArray(data) ? data : (data?.data || [])
 
   const handleDelete = useCallback(async () => {
     setDeleting(true)

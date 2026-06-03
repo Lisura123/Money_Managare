@@ -92,8 +92,8 @@ export default function StaffPage() {
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(null)
 
-  const staff = data?.data || []
-  const showrooms = showroomsData?.data || []
+  const staff = Array.isArray(data) ? data : (data?.data || [])
+  const showrooms = Array.isArray(showroomsData) ? showroomsData : (showroomsData?.data || [])
 
   const handleDelete = useCallback(async () => {
     setDeleting(true)

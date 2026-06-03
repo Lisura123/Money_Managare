@@ -187,7 +187,7 @@ export default function CashTransactionsPage() {
       ) : loading && !transactions.length ? (
         <div className="flex justify-center py-16"><LoadingSpinner /></div>
       ) : !transactions.length ? (
-        <EmptyState icon={<MdArrowForward className="w-8 h-8" />} title="No Cash Transfers" message="Add your first cash transfer above." />
+        <EmptyState icon={MdArrowForward} title="No Cash Transfers" description="Add your first cash transfer above." />
       ) : (
         <div className="space-y-2">
           {transactions.map(tx => (
