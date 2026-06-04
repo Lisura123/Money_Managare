@@ -61,38 +61,70 @@ struct AdminMoreView: View {
 // MARK: - Reports
 
 struct ReportsView: View {
-    @StateObject private var vm = ReportViewModel()
+    @StateObject private var vm         = ReportViewModel()
     @StateObject private var showroomVM = ShowroomViewModel()
-    @State private var fromDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-    @State private var toDate = Date()
+    @State private var fromDate         = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+    @State private var toDate           = Date()
     @State private var selectedShowroomId: Int?
+    @State private var pdfFileURL: URL?
+    @State private var isDownloading    = false
+    @State private var downloadError: String?
+
+    private let fmt: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Filters
+                // Filter card
                 RowCard {
                     VStack(spacing: 12) {
                         DatePicker("From", selection: $fromDate, displayedComponents: .date)
-                        DatePicker("To", selection: $toDate, displayedComponents: .date)
+                        Divider()
+                        DatePicker("To",   selection: $toDate,   displayedComponents: .date)
+                        Divider()
                         Picker("Showroom", selection: $selectedShowroomId) {
                             Text("All Showrooms").tag(Optional<Int>.none)
-                            ForEach(showroomVM.showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                            ForEach(showroomVM.showrooms) { s in
+                                Text(s.name).tag(Optional(s.id))
+                            }
                         }
                     }
                 }
 
+                // Generate JSON summary
                 MMButton(title: "Generate Report", isLoading: vm.isLoading) {
-                    let fmt = DateFormatter()
-                    fmt.dateFormat = "yyyy-MM-dd"
-                    Task { await vm.fetchReport(from: fmt.string(from: fromDate), to: fmt.string(from: toDate), showroomId: selectedShowroomId) }
+                    Task { await vm.fetchReport(from: fmt.string(from: fromDate),
+                                                to:   fmt.string(from: toDate),
+                                                showroomId: selectedShowroomId) }
                 }
 
-                if let e = vm.error { ErrorBanner(message: e) }
-
-                if let s = vm.report {
-                    reportContent(s)
+                // PDF Download button
+                Button {
+                    Task { await downloadPDF() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isDownloading {
+                            ProgressView().tint(.white)
+                        } else {
+                            Image(systemName: "arrow.down.doc.fill")
+                        }
+                        Text(isDownloading ? "Downloading…" : "Download PDF Report")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundStyle(.white)
+                    .background(Color.mmAccent)
+                    .cornerRadius(12)
                 }
+                .disabled(isDownloading)
+
+                if let e = downloadError { ErrorBanner(message: e) }
+                if let e = vm.error      { ErrorBanner(message: e) }
+
+                if let s = vm.report { reportContent(s) }
             }
             .padding(16)
         }
@@ -100,17 +132,25 @@ struct ReportsView: View {
         .navigationTitle("Reports")
         .navigationBarTitleDisplayMode(.inline)
         .task { await showroomVM.fetchAll() }
+        .sheet(item: $pdfFileURL) { url in
+            PDFPreviewView(url: url)
+        }
     }
 
     @ViewBuilder
     private func reportContent(_ s: ReportSummary) -> some View {
         VStack(spacing: 12) {
-            SectionHeader(title: "Summary")
+            HStack {
+                Image(systemName: "calendar").foregroundStyle(Color.mmTextSecondary)
+                Text("\(s.from.displayDate) – \(s.to.displayDate)")
+                    .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
+                Spacer()
+            }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                StatCard(title: "Main Cash",  value: s.cashMainTotal.currency)
-                StatCard(title: "Mano Cash",  value: s.cashManoTotal.currency, color: .mmPrimary)
-                StatCard(title: "Card Total", value: s.cardTotal.currency, color: Color(hex: "6366F1"))
-                StatCard(title: "Grand Total", value: s.grandTotal.currency, color: .mmAccent)
+                ReportStatCard(title: "Main Cash",   value: s.cashMainAdjusted, raw: s.cashMainTotal, color: Color.mmPrimary,      icon: "banknote.fill")
+                ReportStatCard(title: "Mano Cash",   value: s.cashManoAdjusted, raw: s.cashManoTotal, color: Color.mmAccent,       icon: "person.fill")
+                ReportStatCard(title: "Card Total",  value: s.cardAdjusted,     raw: s.cardTotal,     color: Color(hex: "6366F1"), icon: "creditcard.fill")
+                ReportStatCard(title: "Grand Total", value: s.grandAdjusted,    raw: s.grandTotal,    color: Color.mmSuccess,      icon: "chart.bar.fill")
             }
             if !s.perShowroom.isEmpty {
                 SectionHeader(title: "Per Showroom")
@@ -118,7 +158,115 @@ struct ReportsView: View {
             }
         }
     }
+
+    // MARK: - PDF download with auth header
+
+    private func downloadPDF() async {
+        isDownloading = true; downloadError = nil
+        defer { isDownloading = false }
+
+        var comps = URLComponents(string: AppConfig.baseURL + "/reports/pdf/daily-summary")!
+        var items: [URLQueryItem] = [
+            URLQueryItem(name: "from", value: fmt.string(from: fromDate)),
+            URLQueryItem(name: "to",   value: fmt.string(from: toDate)),
+        ]
+        if let sid = selectedShowroomId {
+            items.append(URLQueryItem(name: "showroom_id", value: "\(sid)"))
+        }
+        comps.queryItems = items
+        guard let url = comps.url else { downloadError = "Invalid URL"; return }
+
+        var req = URLRequest(url: url)
+        if let token = try? KeychainService.read(for: AppConfig.tokenKey) {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                downloadError = "Server returned an error. Check date range."; return
+            }
+            // Save to temp file
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("report-\(fmt.string(from: fromDate))-\(fmt.string(from: toDate)).pdf")
+            try data.write(to: tmp)
+            await MainActor.run { pdfFileURL = tmp }
+        } catch {
+            downloadError = error.localizedDescription
+        }
+    }
 }
+
+// MARK: - Report Stat Card
+
+private struct ReportStatCard: View {
+    let title: String
+    let value: Double
+    let raw: Double
+    let color: Color
+    let icon: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(color)
+                    .frame(width: 28, height: 28)
+                    .background(color.opacity(0.12))
+                    .cornerRadius(7)
+                Spacer()
+                if abs(value - raw) > 0.001 {
+                    Text("adj").font(.system(size: 9, weight: .semibold)).foregroundStyle(color)
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(color.opacity(0.12)).cornerRadius(3)
+                }
+            }
+            Text(title).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+            Text(value.currency)
+                .font(.system(size: 16, weight: .bold)).foregroundStyle(color)
+                .minimumScaleFactor(0.7).lineLimit(1)
+            if abs(value - raw) > 0.001 {
+                Text("Raw: \(raw.currency)").font(.system(size: 10)).foregroundStyle(Color.mmTextSecondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.mmCard)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+    }
+}
+
+// MARK: - PDF Preview (QuickLook)
+
+import QuickLook
+
+private struct PDFPreviewView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let vc = QLPreviewController()
+        vc.dataSource = context.coordinator
+        return vc
+    }
+    func updateUIViewController(_ vc: QLPreviewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(url: url) }
+
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+        init(url: URL) { self.url = url }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem { url as QLPreviewItem }
+    }
+}
+
+// Make URL conform to Identifiable for .sheet(item:)
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
 
 // MARK: - Audit Log
 
