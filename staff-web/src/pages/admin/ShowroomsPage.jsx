@@ -72,7 +72,7 @@ function CardAccountModal({ open, onClose, showroomId, initial, onSaved }) {
   const [bankName, setBankName] = useState(initial?.bank_name || '')
   const [lastFour, setLastFour] = useState(initial?.last_four || '')
   const [label, setLabel] = useState(initial?.label || '')
-  const [openingBalance, setOpeningBalance] = useState(initial?.opening_balance || '0')
+  const [openingBalance, setOpeningBalance] = useState(initial?.current_balance || '0')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -80,7 +80,7 @@ function CardAccountModal({ open, onClose, showroomId, initial, onSaved }) {
     if (!bankName.trim() || !lastFour.trim()) return
     setLoading(true)
     try {
-      const payload = { bank_name: bankName.trim(), last_four: lastFour.trim(), label: label.trim(), opening_balance: parseFloat(openingBalance) || 0 }
+      const payload = { bank_name: bankName.trim(), last_four: lastFour.trim(), label: label.trim(), current_balance: parseFloat(openingBalance) || 0 }
       if (initial?.id) {
         await api.put(`/showrooms/${showroomId}/card-accounts/${initial.id}`, payload)
         toast.success('Card account updated.')

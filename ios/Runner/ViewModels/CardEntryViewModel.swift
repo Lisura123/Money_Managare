@@ -75,6 +75,7 @@ final class CardEntryViewModel: ObservableObject {
         if let n = notes, !n.isEmpty { body["notes"] = n }
         if let d = entryDate { body["entry_date"] = d }
         let _: DailyCardEntry = try await api.post("/card-entries", body: body)
+        NotificationCenter.default.post(name: .balancesDidChange, object: nil)
     }
 
     func update(_ id: Int, amount: Double, notes: String?) async throws {
@@ -106,6 +107,7 @@ final class CardEntryViewModel: ObservableObject {
         let body: [String: Any] = ["card_account_id": cardAccountId, "adjusted_amount": adjustedAmount, "reason": reason]
         let new: AdminCardAdjustment = try await api.post("/adjustments/card", body: body)
         adjustments.insert(new, at: 0)
+        NotificationCenter.default.post(name: .balancesDidChange, object: nil)
     }
 
     func deleteEntry(_ id: Int) async throws {
