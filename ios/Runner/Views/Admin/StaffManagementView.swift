@@ -170,7 +170,7 @@ struct StaffFormView: View {
     @State private var isActive = true
     @State private var error: String?
 
-    private let roles = ["staff", "manager"]
+    private let roles = ["staff"]
 
     var isEditing: Bool { existing != nil }
 
