@@ -84,8 +84,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Card accounts per showroom
         Route::apiResource('/showrooms/{showroom}/card-accounts', CardAccountController::class);
 
-        // All card accounts (flat list for admin pickers)
+        // All card accounts (flat list for admin pickers + iOS create/update/delete)
         Route::get('/card-accounts', [CardAccountController::class, 'adminIndex']);
+        Route::post('/card-accounts', [CardAccountController::class, 'storeFlat']);
+        Route::put('/card-accounts/{cardAccount}', [CardAccountController::class, 'updateFlat']);
+        Route::patch('/card-accounts/{cardAccount}', [CardAccountController::class, 'updateFlat']);
+        Route::delete('/card-accounts/{cardAccount}', [CardAccountController::class, 'destroyFlat']);
 
         // Staff management
         Route::apiResource('/staff', StaffController::class);
