@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DailyCashEntryController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EditRequestController;
 use App\Http\Controllers\Api\ExternalAccountController;
+use App\Http\Controllers\Api\ShowroomCashController;
 use App\Http\Controllers\Api\SelfTransactionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\ShowroomController;
@@ -142,6 +143,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // External accounts
         Route::get('/external-accounts', [ExternalAccountController::class, 'index']);
+        Route::get('/showroom-cash-balances', [ShowroomCashController::class, 'index']);
 
         // Cash transactions
         Route::get('/cash-transactions', [CashTransactionController::class, 'index']);
