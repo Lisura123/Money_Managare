@@ -16,16 +16,18 @@ class ExternalAccountController extends Controller
     {
         $accounts = ExternalAccount::orderBy('name')->get();
 
-        // Compute live balance: daily cash entries + self-transfers received − self-transfers sent
+        // Compute live balance: stored opening balance + daily cash entries + self-transfers received − self-transfers sent
         $accounts->each(function (ExternalAccount $acc) {
             if ($acc->cash_account_type) {
+                $openingBalance = (float) $acc->balance; // stored base / opening balance
+
                 $cashTotal = (float) DailyCashEntry::where('cash_account_type', $acc->cash_account_type)
                     ->sum('cash_amount');
 
                 $selfIn  = (float) SelfTransaction::where('to_external_account_id', $acc->id)->sum('amount');
                 $selfOut = (float) SelfTransaction::where('from_external_account_id', $acc->id)->sum('amount');
 
-                $acc->balance = $cashTotal + $selfIn - $selfOut;
+                $acc->balance = $openingBalance + $cashTotal + $selfIn - $selfOut;
             }
         });
 
