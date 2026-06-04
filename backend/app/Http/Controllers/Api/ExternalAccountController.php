@@ -16,15 +16,16 @@ class ExternalAccountController extends Controller
     {
         $accounts = ExternalAccount::orderBy('name')->get();
 
-        // Compute live balance: daily cash entries + self-transfers received
+        // Compute live balance: daily cash entries + self-transfers received − self-transfers sent
         $accounts->each(function (ExternalAccount $acc) {
             if ($acc->cash_account_type) {
                 $cashTotal = (float) DailyCashEntry::where('cash_account_type', $acc->cash_account_type)
                     ->sum('cash_amount');
 
-                $selfIn = (float) SelfTransaction::where('to_external_account_id', $acc->id)->sum('amount');
+                $selfIn  = (float) SelfTransaction::where('to_external_account_id', $acc->id)->sum('amount');
+                $selfOut = (float) SelfTransaction::where('from_external_account_id', $acc->id)->sum('amount');
 
-                $acc->balance = $cashTotal + $selfIn;
+                $acc->balance = $cashTotal + $selfIn - $selfOut;
             }
         });
 
@@ -36,8 +37,6 @@ class ExternalAccountController extends Controller
         ])->values()->toArray();
 
         // Synthetic "Main Account" — cumulative running balance across all time
-        // Formula: SUM(main cash entries) + SUM(main cash adjustments)
-        //          - SUM(cash_transactions sent from main) + SUM(cash_transactions received into main)
         $mainEntries = (float) DailyCashEntry::where('cash_account_type', 'main')->sum('cash_amount');
 
         $mainAdj = (float) DB::table('admin_cash_adjustments')
@@ -48,10 +47,14 @@ class ExternalAccountController extends Controller
         $mainOut = (float) CashTransaction::where('from_account_type', 'main')->sum('amount');
         $mainIn  = (float) CashTransaction::where('to_account_type', 'main')->sum('amount');
 
+        // Self-transaction flows involving main cash
+        $selfMainOut = (float) SelfTransaction::where('from_account_type', 'main')->sum('amount');
+        $selfMainIn  = (float) SelfTransaction::where('to_account_type', 'main')->sum('amount');
+
         array_unshift($result, [
             'id'                => -1,
             'name'              => 'Main Account',
-            'balance'           => round($mainEntries + $mainAdj - $mainOut + $mainIn, 2),
+            'balance'           => round($mainEntries + $mainAdj - $mainOut + $mainIn - $selfMainOut + $selfMainIn, 2),
             'cash_account_type' => 'main',
         ]);
 

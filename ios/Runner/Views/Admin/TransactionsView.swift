@@ -152,138 +152,354 @@ struct SelfTransactionFormView: View {
     @Environment(\.dismiss) var dismiss
     let onSave: () async -> Void
 
-    @StateObject private var vm = SelfTransactionViewModel()
-    @StateObject private var cardVM = CardAccountViewModel()
-    @StateObject private var extVM = ExternalAccountViewModel()
+    // MARK: - Source / Destination type enums
+    enum AccountSource: Hashable {
+        case mainCash, card, mano
+        var label: String {
+            switch self {
+            case .mainCash: return "Main Cash"
+            case .card:     return "Card"
+            case .mano:     return "Mano"
+            }
+        }
+    }
+    enum AccountDest: Hashable {
+        case mainCash, card, mano, other
+        var label: String {
+            switch self {
+            case .mainCash: return "Main Cash"
+            case .card:     return "Card"
+            case .mano:     return "Mano"
+            case .other:    return "Others"
+            }
+        }
+    }
+
+    // MARK: - State
+    @State private var fromType: AccountSource?
+    @State private var fromShowroomId: Int?
     @State private var fromCardId: Int?
-    @State private var toDestination: ToDestination?
+
+    @State private var toType: AccountDest?
+    @State private var toShowroomId: Int?
+    @State private var toCardId: Int?
+
     @State private var amount = ""
     @State private var notes = ""
     @State private var error: String?
 
-    /// Tagged union so one Picker can hold both card IDs and external account IDs
-    enum ToDestination: Hashable {
-        case card(Int)
-        case external(Int)
-        case other
+    // MARK: - ViewModels
+    @StateObject private var vm        = SelfTransactionViewModel()
+    @StateObject private var cardVM    = CardAccountViewModel()
+    @StateObject private var showroomVM = ShowroomViewModel()
+    @StateObject private var extVM     = ExternalAccountViewModel()
 
-        var label: String { "" }
+    // MARK: - Helpers
+    private var manoAccount: ExternalAccount? {
+        extVM.accounts.first { $0.cashAccountType == "mano" }
     }
-
-    var notesRequired: Bool { toDestination == .other }
-
-    private var amountValue: Double? { Double(amount) }
-    private var fromAccount: CardAccount? { cardVM.accounts.first { $0.id == fromCardId } }
-    private var toCardAccount: CardAccount? {
-        guard case .card(let id) = toDestination else { return nil }
+    private var mainAccount: ExternalAccount? {
+        extVM.accounts.first { $0.cashAccountType == "main" }
+    }
+    private func cardsForShowroom(_ id: Int) -> [CardAccount] {
+        cardVM.accounts.filter { $0.showroomId == id && $0.isActive }
+    }
+    private var fromCardAccount: CardAccount? {
+        guard let id = fromCardId else { return nil }
         return cardVM.accounts.first { $0.id == id }
     }
-    private var toExtAccount: ExternalAccount? {
-        guard case .external(let id) = toDestination else { return nil }
-        return extVM.accounts.first { $0.id == id }
+    private var toCardAccount: CardAccount? {
+        guard let id = toCardId else { return nil }
+        return cardVM.accounts.first { $0.id == id }
+    }
+    private var fromBalance: Double? {
+        switch fromType {
+        case .card:     return fromCardAccount?.currentBalance
+        case .mano:     return manoAccount?.balance
+        case .mainCash: return mainAccount?.balance
+        case .none:     return nil
+        }
+    }
+    private var toBalance: Double? {
+        switch toType {
+        case .card:     return toCardAccount?.currentBalance
+        case .mano:     return manoAccount?.balance
+        case .mainCash: return mainAccount?.balance
+        case .other, .none: return nil
+        }
+    }
+    private var fromLabel: String {
+        switch fromType {
+        case .card:     return fromCardAccount?.displayLabel ?? "—"
+        case .mano:     return manoAccount?.name ?? "Mano"
+        case .mainCash: return "Main Cash"
+        case .none:     return "—"
+        }
+    }
+    private var toLabel: String {
+        switch toType {
+        case .card:     return toCardAccount?.displayLabel ?? "—"
+        case .mano:     return manoAccount?.name ?? "Mano"
+        case .mainCash: return "Main Cash"
+        case .other:    return "Others"
+        case .none:     return "—"
+        }
+    }
+    private var amountValue: Double? { Double(amount).flatMap { $0 > 0 ? $0 : nil } }
+    private var notesRequired: Bool { toType == .other }
+    private var saveDisabled: Bool {
+        vm.isSubmitting || fromType == nil || toType == nil || amount.isEmpty ||
+        (fromType == .card && fromCardId == nil) ||
+        (toType == .card && toCardId == nil) ||
+        (notesRequired && notes.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
+    // MARK: - Body
     var body: some View {
         NavigationStack {
             Form {
-                Section("Transfer Details") {
-                    Picker(selection: $fromCardId) {
-                        Text("Select…").tag(Optional<Int>.none)
-                        ForEach(cardVM.accounts) { a in
-                            Text("\(a.displayLabel) (\(a.currentBalance.currency))").tag(Optional<Int>.some(a.id))
-                        }
-                    } label: { Text("From Card") }
+                // ── FROM ──────────────────────────────────────────────────────
+                Section {
+                    typeChips(
+                        options: [.mainCash, .card, .mano],
+                        selected: fromType
+                    ) { newType in
+                        fromType = newType
+                        fromShowroomId = nil
+                        fromCardId = nil
+                    }
+                    fromDetailRows
+                } header: { Text("From") }
 
-                    Picker(selection: $toDestination) {
-                        Text("Select…").tag(Optional<ToDestination>.none)
-                        if !cardVM.accounts.isEmpty {
-                            Section("Card Accounts") {
-                                ForEach(cardVM.accounts) { a in
-                                    Text("\(a.displayLabel) (\(a.currentBalance.currency))")
-                                        .tag(Optional<ToDestination>.some(.card(a.id)))
-                                }
-                            }
-                        }
-                        if !extVM.accounts.isEmpty {
-                            Section("External Accounts") {
-                                ForEach(extVM.accounts) { a in
-                                    Text("\(a.name) (\(a.balance.currency))")
-                                        .tag(Optional<ToDestination>.some(.external(a.id)))
-                                }
-                            }
-                        }
-                        Section("") {
-                            Text("Other").tag(Optional<ToDestination>.some(.other))
-                        }
-                    } label: { Text("To") }
+                // ── TO ────────────────────────────────────────────────────────
+                Section {
+                    typeChips(
+                        options: [.mainCash, .card, .mano, .other],
+                        selected: toType
+                    ) { newType in
+                        toType = newType
+                        toShowroomId = nil
+                        toCardId = nil
+                    }
+                    toDetailRows
+                } header: { Text("To") }
 
+                // ── AMOUNT & NOTES ────────────────────────────────────────────
+                Section("Amount & Notes") {
                     MMTextField(label: "Amount", text: $amount, keyboardType: .decimalPad)
                     MMTextField(
                         label: notesRequired ? "Notes (required)" : "Notes (optional)",
                         text: $notes
                     )
                     if notesRequired && notes.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Text("Notes are required for this destination")
+                        Text("Notes are required for Others")
                             .font(.system(size: 12))
                             .foregroundStyle(Color.mmError)
                     }
                 }
-                if let from = fromAccount, let amt = amountValue, amt > 0 {
+
+                // ── BALANCE PREVIEW ───────────────────────────────────────────
+                if let amt = amountValue, let fb = fromBalance {
                     Section("Balance Preview") {
-                        BalancePreviewRow(label: "From", name: from.displayLabel,
-                                         before: from.currentBalance, after: from.currentBalance - amt,
-                                         isIncrease: false)
-                        if let to = toCardAccount {
-                            BalancePreviewRow(label: "To", name: to.displayLabel,
-                                             before: to.currentBalance, after: to.currentBalance + amt,
-                                             isIncrease: true)
-                        } else if let ext = toExtAccount {
-                            BalancePreviewRow(label: "To", name: ext.name,
-                                             before: ext.balance, after: ext.balance + amt,
-                                             isIncrease: true)
+                        BalancePreviewRow(label: "From", name: fromLabel,
+                                         before: fb, after: fb - amt, isIncrease: false)
+                        if let tb = toBalance {
+                            BalancePreviewRow(label: "To", name: toLabel,
+                                             before: tb, after: tb + amt, isIncrease: true)
                         }
                     }
                 }
-                if let e = error { Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) } }
+
+                // ── ERROR ─────────────────────────────────────────────────────
+                if let e = error {
+                    Section {
+                        Text(e).foregroundStyle(Color.mmError).font(.system(size: 13))
+                    }
+                }
             }
-            .navigationTitle("New Self Transfer").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("New Self Transfer")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .disabled(
-                            vm.isSubmitting || fromCardId == nil || toDestination == nil ||
-                            amount.isEmpty ||
-                            (notesRequired && notes.trimmingCharacters(in: .whitespaces).isEmpty)
-                        )
+                    if vm.isSubmitting {
+                        ProgressView()
+                    } else {
+                        Button("Save") { Task { await save() } }
+                            .disabled(saveDisabled)
+                    }
                 }
             }
             .task {
                 async let c: () = cardVM.fetchAll()
+                async let s: () = showroomVM.fetchAll()
                 async let e: () = extVM.fetchAll()
-                _ = await (c, e)
+                _ = await (c, s, e)
             }
         }
     }
 
-    private func save() async {
-        guard let fId = fromCardId, let dest = toDestination, let amt = Double(amount) else {
-            error = "Fill all fields"; return
-        }
-        let notesVal = notes.trimmingCharacters(in: .whitespaces)
-        do {
-            switch dest {
-            case .card(let cId):
-                try await vm.create(fromId: fId, toCardId: cId, amount: amt,
-                                    notes: notesVal.isEmpty ? nil : notesVal)
-            case .external(let eId):
-                try await vm.create(fromId: fId, toExternalId: eId, amount: amt,
-                                    notes: notesVal.isEmpty ? nil : notesVal)
-            case .other:
-                try await vm.create(fromId: fId, amount: amt, notes: notesVal)
+    // MARK: - Sub-views
+
+    /// Horizontal row of pill chips for type selection.
+    @ViewBuilder
+    private func typeChips<T: Hashable>(
+        options: [T],
+        selected: T?,
+        onSelect: @escaping (T) -> Void
+    ) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
+                    let label: String = {
+                        if let src = opt as? AccountSource { return src.label }
+                        if let dst = opt as? AccountDest   { return dst.label }
+                        return "\(opt)"
+                    }()
+                    let isSelected = selected == opt
+                    Button(label) { onSelect(opt) }
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? Color.white : Color.mmTextSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(isSelected ? Color.mmPrimary : Color(UIColor.systemGray5))
+                        .clipShape(Capsule())
+                }
             }
-            await onSave(); dismiss()
-        } catch { self.error = error.localizedDescription }
+            .padding(.vertical, 4)
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+    }
+
+    @ViewBuilder
+    private var fromDetailRows: some View {
+        switch fromType {
+        case .card:
+            Picker("Showroom", selection: $fromShowroomId) {
+                Text("Select showroom…").tag(Optional<Int>.none)
+                ForEach(showroomVM.showrooms.filter { $0.isActive }) { s in
+                    Text(s.name).tag(Optional<Int>.some(s.id))
+                }
+            }
+            .onChange(of: fromShowroomId) { fromCardId = nil }
+
+            if let sid = fromShowroomId {
+                let cards = cardsForShowroom(sid)
+                Picker("Account", selection: $fromCardId) {
+                    Text("Select account…").tag(Optional<Int>.none)
+                    ForEach(cards) { a in
+                        Text("\(a.displayLabel)  \(a.currentBalance.currency)")
+                            .tag(Optional<Int>.some(a.id))
+                    }
+                }
+            }
+        case .mano:
+            if let mano = manoAccount {
+                LabeledContent(mano.name) {
+                    Text(mano.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
+            } else {
+                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+        case .mainCash:
+            if let main = mainAccount {
+                LabeledContent("Main Cash") {
+                    Text(main.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
+            } else {
+                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+        case .none:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var toDetailRows: some View {
+        switch toType {
+        case .card:
+            Picker("Showroom", selection: $toShowroomId) {
+                Text("Select showroom…").tag(Optional<Int>.none)
+                ForEach(showroomVM.showrooms.filter { $0.isActive }) { s in
+                    Text(s.name).tag(Optional<Int>.some(s.id))
+                }
+            }
+            .onChange(of: toShowroomId) { toCardId = nil }
+
+            if let sid = toShowroomId {
+                let cards = cardsForShowroom(sid)
+                Picker("Account", selection: $toCardId) {
+                    Text("Select account…").tag(Optional<Int>.none)
+                    ForEach(cards) { a in
+                        Text("\(a.displayLabel)  \(a.currentBalance.currency)")
+                            .tag(Optional<Int>.some(a.id))
+                    }
+                }
+            }
+        case .mano:
+            if let mano = manoAccount {
+                LabeledContent(mano.name) {
+                    Text(mano.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
+            } else {
+                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+        case .mainCash:
+            if let main = mainAccount {
+                LabeledContent("Main Cash") {
+                    Text(main.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
+            } else {
+                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+        case .other:
+            EmptyView()   // notes are required — shown in Amount & Notes section
+        case .none:
+            EmptyView()
+        }
+    }
+
+    // MARK: - Save
+    private func save() async {
+        guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount"; return }
+        let notesVal = notes.trimmingCharacters(in: .whitespaces)
+
+        // Build FROM params
+        let fromCardIdParam: Int?     = fromType == .card     ? fromCardId           : nil
+        let fromExtIdParam:  Int?     = fromType == .mano     ? manoAccount?.id      : nil
+        let fromAccTypeParam: String? = fromType == .mainCash ? "main"               : nil
+
+        // Build TO params
+        var toCardIdParam:    Int?     = nil
+        var toExtIdParam:     Int?     = nil
+        var toAccTypeParam:   String?  = nil
+        switch toType {
+        case .card:     toCardIdParam  = toCardId
+        case .mano:     toExtIdParam   = manoAccount?.id
+        case .mainCash: toAccTypeParam = "main"
+        case .other, .none: break
+        }
+
+        do {
+            try await vm.create(
+                fromCardId:    fromCardIdParam,
+                fromExternalId: fromExtIdParam,
+                fromAccType:   fromAccTypeParam,
+                toCardId:      toCardIdParam,
+                toExternalId:  toExtIdParam,
+                toAccType:     toAccTypeParam,
+                amount:        amt,
+                notes:         notesVal.isEmpty ? nil : notesVal
+            )
+            await onSave()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 
