@@ -164,6 +164,7 @@ struct StaffFormView: View {
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
     @State private var role = "staff"
     @State private var selectedShowroomId: Int?
     @State private var isActive = true
@@ -180,7 +181,24 @@ struct StaffFormView: View {
                     TextField("Full Name", text: $name)
                     TextField("Email", text: $email).keyboardType(.emailAddress).autocorrectionDisabled()
                     if !isEditing {
-                        SecureField("Password", text: $password)
+                        HStack {
+                            Group {
+                                if showPassword {
+                                    TextField("Password", text: $password)
+                                        .autocorrectionDisabled()
+                                        .textInputAutocapitalization(.never)
+                                } else {
+                                    SecureField("Password", text: $password)
+                                }
+                            }
+                            Button {
+                                showPassword.toggle()
+                            } label: {
+                                Image(systemName: showPassword ? "eye.slash" : "eye")
+                                    .foregroundStyle(Color.mmTextSecondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
                 Section("Role & Showroom") {
