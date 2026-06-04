@@ -24,9 +24,6 @@ struct AdminMoreView: View {
                     NavigationLink(destination: EditRequestsView()) {
                         Label("Edit Requests", systemImage: "pencil.circle")
                     }
-                    NavigationLink(destination: EditWindowSettingsView()) {
-                        Label("Edit Window", systemImage: "clock.badge.checkmark")
-                    }
                     NavigationLink(destination: SettingsView()) {
                         Label("Settings", systemImage: "gearshape.fill")
                     }
@@ -542,39 +539,37 @@ struct AuditLogRow: View {
 // MARK: - Settings
 
 struct SettingsView: View {
-    @StateObject private var vm = SettingsViewModel()
-
     var body: some View {
-        Group {
-            if vm.isLoading && vm.settings.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(40)
-            } else if let e = vm.error {
-                VStack(spacing: 12) {
-                    ErrorBanner(message: e)
-                    Button("Retry") { Task { await vm.fetchAll() } }
-                        .foregroundStyle(Color.mmPrimary)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-            } else if vm.settings.isEmpty {
-                EmptyStateView(icon: "gearshape", message: "No settings found")
-            } else {
-                List {
-                    ForEach(vm.settings) { s in
-                        SettingRow(setting: s, vm: vm)
+        List {
+            Section("Edit Window") {
+                NavigationLink(destination: EditWindowSettingsView()) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "clock.badge.checkmark.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.mmPrimary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.mmPrimary.opacity(0.1))
+                            .cornerRadius(8)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Edit Window")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Set the daily hours staff can submit entries")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.mmTextSecondary)
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
-                .listStyle(.insetGrouped)
             }
         }
+        .listStyle(.insetGrouped)
         .background(Color.mmBackground)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await vm.fetchAll() }
     }
 }
 
-struct SettingRow: View {
+private struct SettingRow: View {
     let setting: Setting
     @ObservedObject var vm: SettingsViewModel
     @State private var editValue = ""
