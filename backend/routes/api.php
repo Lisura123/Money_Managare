@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\SelfTransactionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\ShowroomController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\StaffStatusController;
 use Illuminate\Support\Facades\Route;
@@ -95,6 +96,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('/staff', StaffController::class);
         Route::post('/staff/{staff}/send-reset-email', [StaffController::class, 'sendResetEmail']);
         Route::patch('/staff/{staff}/toggle-active', [StaffController::class, 'toggleActive']);
+
+        // Admin user management
+        Route::get('/admins', [AdminController::class, 'index']);
+        Route::post('/admins', [AdminController::class, 'store']);
+        Route::put('/admins/{admin}', [AdminController::class, 'update']);
+        Route::delete('/admins/{admin}', [AdminController::class, 'destroy']);
+        Route::post('/admins/bulk-delete', [AdminController::class, 'bulkDestroy']);
+        Route::patch('/admins/{admin}/toggle-active', [AdminController::class, 'toggleActive']);
 
         // All cash entries with filters
         Route::get('/cash-entries', [DailyCashEntryController::class, 'index']);
