@@ -61,7 +61,9 @@ struct ForgotPasswordView: View {
     }
 
     private func send() async {
-        guard !email.isEmpty else { error = "Email is required."; return }
+        guard !email.trimmingCharacters(in: .whitespaces).isEmpty else {
+            error = "Please enter your email address."; return
+        }
         isLoading = true; error = nil
         do {
             try await authService.forgotPassword(email: email)
