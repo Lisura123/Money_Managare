@@ -144,14 +144,21 @@ struct ShowroomRow: View {
 
 struct ShowroomDetailView: View {
     let showroom: Showroom
-    @StateObject private var cardVM = CardAccountViewModel()
-    @StateObject private var staffVM = StaffViewModel()
+    @StateObject private var cardVM    = CardAccountViewModel()
+    @StateObject private var staffVM   = StaffViewModel()
+    @StateObject private var cashVM    = ShowroomCashViewModel()
     @State private var showAddCard = false
     @State private var editCardTarget: CardAccount? = nil
     @State private var deleteCardAlert: CardAccount? = nil
 
     private var showroomAccounts: [CardAccount] {
         cardVM.accounts.filter { $0.showroomId == showroom.id }
+    }
+    private var totalCardBalance: Double {
+        showroomAccounts.reduce(0) { $0 + $1.currentBalance }
+    }
+    private var mainCashBalance: Double {
+        cashVM.showrooms.first { $0.showroomId == showroom.id }?.balance ?? 0
     }
 
     var body: some View {
@@ -171,6 +178,22 @@ struct ShowroomDetailView: View {
                         StatusBadge(text: showroom.isActive ? "Active" : "Inactive",
                                     color: showroom.isActive ? .mmSuccess : .mmTextSecondary)
                     }
+                }
+
+                // Balance summary tiles
+                HStack(spacing: 12) {
+                    BalanceTile(
+                        title: "Main Cash",
+                        amount: mainCashBalance,
+                        icon: "banknote.fill",
+                        color: Color.mmPrimary
+                    )
+                    BalanceTile(
+                        title: "Total Cards",
+                        amount: totalCardBalance,
+                        icon: "creditcard.fill",
+                        color: Color.mmAccent
+                    )
                 }
 
                 // Card accounts
@@ -254,12 +277,43 @@ struct ShowroomDetailView: View {
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .balancesDidChange)) { _ in
-            Task { await cardVM.fetchAll(showroomId: showroom.id) }
+            Task {
+                async let c: () = cardVM.fetchAll(showroomId: showroom.id)
+                async let h: () = cashVM.fetchAll()
+                _ = await (c, h)
+            }
         }
         .task {
             async let c: () = cardVM.fetchAll(showroomId: showroom.id)
             async let s: () = staffVM.fetchAll(showroomId: showroom.id)
-            _ = await (c, s)
+            async let h: () = cashVM.fetchAll()
+            _ = await (c, s, h)
+        }
+    }
+}
+
+private struct BalanceTile: View {
+    let title: String
+    let amount: Double
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        RowCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(color)
+                    Text(title)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.mmTextSecondary)
+                }
+                Text(amount.currency)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(color)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
