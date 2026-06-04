@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 class SelfTransaction extends Model
 {
     protected $fillable = [
-        'from_card_account_id', 'from_external_account_id', 'from_account_type',
-        'to_card_account_id', 'to_external_account_id', 'to_account_type',
+        'from_card_account_id', 'from_external_account_id', 'from_account_type', 'from_showroom_id',
+        'to_card_account_id', 'to_external_account_id', 'to_account_type', 'to_showroom_id',
         'admin_id', 'amount', 'notes',
     ];
 

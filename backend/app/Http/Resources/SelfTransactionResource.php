@@ -14,6 +14,8 @@ class SelfTransactionResource extends JsonResource
             'from_card_account_id'     => $this->from_card_account_id,
             'from_external_account_id' => $this->from_external_account_id,
             'from_account_type'        => $this->from_account_type,
+            'from_showroom_id'         => $this->from_showroom_id,
+            'to_showroom_id'           => $this->to_showroom_id,
             'to_card_account_id'       => $this->to_card_account_id,
             'to_external_account_id'   => $this->to_external_account_id,
             'to_account_type'          => $this->to_account_type,

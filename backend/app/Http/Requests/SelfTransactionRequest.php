@@ -33,6 +33,8 @@ class SelfTransactionRequest extends FormRequest
                 ? ['required', 'integer', 'exists:external_accounts,id']
                 : ['nullable'],
             'to_account_type'          => ['nullable', 'string', 'in:main'],
+            'from_showroom_id'         => ['nullable', 'integer', 'exists:showrooms,id'],
+            'to_showroom_id'           => ['nullable', 'integer', 'exists:showrooms,id'],
             'amount'                   => ['required', 'numeric', 'min:0.01'],
             'notes'                    => [$toOthers ? 'required' : 'nullable', 'string', 'max:1000'],
         ];

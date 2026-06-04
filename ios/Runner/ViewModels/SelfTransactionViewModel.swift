@@ -32,16 +32,20 @@ final class SelfTransactionViewModel: ObservableObject {
     }
 
     func create(fromCardId: Int? = nil, fromExternalId: Int? = nil, fromAccType: String? = nil,
+                fromShowroomId: Int? = nil,
                 toCardId: Int? = nil, toExternalId: Int? = nil, toAccType: String? = nil,
+                toShowroomId: Int? = nil,
                 amount: Double, notes: String?) async throws {
         isSubmitting = true; defer { isSubmitting = false }
         var body: [String: Any] = ["amount": amount]
         if let c = fromCardId     { body["from_card_account_id"]     = c }
         if let e = fromExternalId { body["from_external_account_id"] = e }
         if let t = fromAccType    { body["from_account_type"]        = t }
+        if let s = fromShowroomId { body["from_showroom_id"]         = s }
         if let c = toCardId       { body["to_card_account_id"]       = c }
         if let e = toExternalId   { body["to_external_account_id"]   = e }
         if let t = toAccType      { body["to_account_type"]          = t }
+        if let s = toShowroomId   { body["to_showroom_id"]           = s }
         if let n = notes, !n.isEmpty { body["notes"] = n }
         let new: SelfTransaction = try await api.post("/self-transactions", body: body)
         transactions.insert(new, at: 0)
