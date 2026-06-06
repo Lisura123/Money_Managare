@@ -34,6 +34,7 @@ struct CashEntriesAdminView: View {
     @State private var isSelecting = false
     @State private var selectedIds: Set<Int> = []
     @State private var bulkDeleteAlert = false
+    @State private var showAddEntry = false
 
     var body: some View {
         Group {
@@ -98,6 +99,11 @@ struct CashEntriesAdminView: View {
                 }
             } else {
                 ToolbarItem(placement: .primaryAction) {
+                    Button { showAddEntry = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("All") { filterShowroomId = nil; Task { await vm.fetchEntries(showroomId: nil, refresh: true) } }
                         ForEach(showroomVM.showrooms) { s in
@@ -126,6 +132,11 @@ struct CashEntriesAdminView: View {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showAddEntry) {
+            AdminAddCashEntryView(showrooms: showroomVM.showrooms) {
+                await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
             }
         }
         .sheet(item: $editTarget) { e in
@@ -241,6 +252,7 @@ struct CardEntriesAdminView: View {
     @State private var isSelecting = false
     @State private var selectedIds: Set<Int> = []
     @State private var bulkDeleteAlert = false
+    @State private var showAddEntry = false
 
     var body: some View {
         Group {
@@ -304,6 +316,11 @@ struct CardEntriesAdminView: View {
                 }
             } else {
                 ToolbarItem(placement: .primaryAction) {
+                    Button { showAddEntry = true } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("All") { filterShowroomId = nil; Task { await vm.fetchEntries(showroomId: nil, refresh: true) } }
                         ForEach(showroomVM.showrooms) { s in
@@ -329,6 +346,11 @@ struct CardEntriesAdminView: View {
                         Image(systemName: "ellipsis.circle")
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showAddEntry) {
+            AdminAddCardEntryView(showrooms: showroomVM.showrooms) {
+                await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
             }
         }
         .sheet(item: $editTarget) { e in
@@ -907,6 +929,272 @@ struct CardAdjustmentFormView: View {
         do {
             try await entryVM.createAdjustmentForAccount(cardAccountId: id, adjustedAmount: signedAmount, reason: reason)
             await onSave(); dismiss()
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
+// MARK: - Admin Add Cash Entry
+
+struct AdminAddCashEntryView: View {
+    @Environment(\.dismiss) var dismiss
+    let showrooms: [Showroom]
+    let onSave: () async -> Void
+
+    @StateObject private var vm = CashEntryViewModel()
+    @State private var selectedShowroomId: Int?
+    @State private var selectedAccount: String = "main"
+    @State private var mainAmount = ""
+    @State private var manoAmount = ""
+    @State private var mainNotes  = ""
+    @State private var manoNotes  = ""
+    @State private var entryDate  = Date()
+    @State private var error: String?
+    @State private var success    = false
+    private static let largeThreshold: Double = 1_000_000
+    @State private var showLargeAmountConfirm = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let e = error { ErrorBanner(message: e) { error = nil } }
+                    if success {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
+                            Text("Entries submitted successfully").foregroundStyle(Color.mmSuccess)
+                        }
+                        .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
+                    }
+
+                    // Showroom picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Showroom", systemImage: "building.2")
+                            .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
+                        Picker("Showroom", selection: $selectedShowroomId) {
+                            Text("Select showroom…").tag(Optional<Int>.none)
+                            ForEach(showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                        }
+                        .pickerStyle(.menu)
+                        .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                    }
+                    .padding(16).background(Color.mmCard).cornerRadius(14)
+
+                    // Entry date
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Entry Date").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
+                        DatePicker("", selection: $entryDate, in: ...Date(), displayedComponents: .date)
+                            .datePickerStyle(.compact).labelsHidden()
+                            .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                    }
+                    .padding(16).background(Color.mmCard).cornerRadius(14)
+
+                    // Account selector
+                    Picker("Account", selection: $selectedAccount) {
+                        Label("Main Cash",   systemImage: "banknote").tag("main")
+                        Label("Mano's Cash", systemImage: "person.crop.circle.badge.checkmark").tag("mano")
+                    }
+                    .pickerStyle(.segmented).padding(.vertical, 4)
+
+                    // Entry form
+                    if selectedAccount == "main" {
+                        adminCashSection(title: "Main Cash Account", icon: "banknote",
+                                         amount: $mainAmount, notes: $mainNotes, accountType: "main")
+                    } else {
+                        adminCashSection(title: "Mano's Cash Account", icon: "person.crop.circle.badge.checkmark",
+                                         amount: $manoAmount, notes: $manoNotes, accountType: "mano")
+                    }
+
+                    MMButton(title: "Submit Entries", isLoading: vm.isSubmitting) {
+                        let m = Double(mainAmount) ?? -1
+                        let n = Double(manoAmount) ?? -1
+                        if m >= Self.largeThreshold || n >= Self.largeThreshold { showLargeAmountConfirm = true }
+                        else { Task { await submit() } }
+                    }
+                    .disabled(selectedShowroomId == nil)
+                }
+                .padding(20)
+            }
+            .background(Color.mmBackground)
+            .navigationTitle("Add Cash Entry")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+            .confirmationDialog("Large Amount", isPresented: $showLargeAmountConfirm, titleVisibility: .visible) {
+                Button("Submit Anyway", role: .destructive) { Task { await submit() } }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("One or more amounts are ≥ Rs. 1,000,000. Are you sure?") }
+        }
+    }
+
+    @ViewBuilder
+    private func adminCashSection(title: String, icon: String,
+                                   amount: Binding<String>, notes: Binding<String>,
+                                   accountType: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.mmPrimary)
+            MMTextField(label: "Amount", text: amount, placeholder: "0.00",
+                        keyboardType: .decimalPad, autocapitalization: .never)
+            MMTextField(label: "Notes (optional)", text: notes, placeholder: "Any remarks...")
+        }
+        .padding(16).background(Color.mmCard).cornerRadius(14)
+    }
+
+    private func submit() async {
+        guard let sId = selectedShowroomId else { error = "Select a showroom."; return }
+        let mainAmt = Double(mainAmount) ?? -1
+        let manoAmt = Double(manoAmount) ?? -1
+        guard mainAmt >= 0 || manoAmt >= 0 else { error = "Enter at least one valid amount."; return }
+        let dateStr: String = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: entryDate) }()
+        error = nil
+        do {
+            if mainAmt >= 0 {
+                try await vm.submit(showroomId: sId, cashAmount: mainAmt,
+                                    notes: mainNotes.isEmpty ? nil : mainNotes,
+                                    cashAccountType: "main", entryDate: dateStr)
+            }
+            if manoAmt >= 0 {
+                try await vm.submit(showroomId: sId, cashAmount: manoAmt,
+                                    notes: manoNotes.isEmpty ? nil : manoNotes,
+                                    cashAccountType: "mano", entryDate: dateStr)
+            }
+            success = true
+            mainAmount = ""; manoAmount = ""; mainNotes = ""; manoNotes = ""
+            await onSave()
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
+// MARK: - Admin Add Card Entry
+
+struct AdminAddCardEntryView: View {
+    @Environment(\.dismiss) var dismiss
+    let showrooms: [Showroom]
+    let onSave: () async -> Void
+
+    @StateObject private var vm        = CardEntryViewModel()
+    @StateObject private var accountVM = CardAccountViewModel()
+    @State private var selectedShowroomId: Int?
+    @State private var selectedAccountId: Int?
+    @State private var amount    = ""
+    @State private var notes     = ""
+    @State private var entryDate = Date()
+    @State private var error: String?
+    @State private var success   = false
+    private static let largeThreshold: Double = 1_000_000
+    @State private var showLargeAmountConfirm = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let e = error { ErrorBanner(message: e) { error = nil } }
+                    if success {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
+                            Text("Card entry submitted").foregroundStyle(Color.mmSuccess)
+                        }
+                        .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
+                    }
+
+                    // Showroom picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Showroom", systemImage: "building.2")
+                            .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
+                        Picker("Showroom", selection: $selectedShowroomId) {
+                            Text("Select showroom…").tag(Optional<Int>.none)
+                            ForEach(showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                        }
+                        .pickerStyle(.menu)
+                        .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                    }
+                    .padding(16).background(Color.mmCard).cornerRadius(14)
+                    .onChange(of: selectedShowroomId) { _ in
+                        selectedAccountId = nil
+                        if let sId = selectedShowroomId {
+                            Task { await accountVM.fetchAll(showroomId: sId) }
+                        }
+                    }
+
+                    // Entry date
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Entry Date").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
+                        DatePicker("", selection: $entryDate, in: ...Date(), displayedComponents: .date)
+                            .datePickerStyle(.compact).labelsHidden()
+                            .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                    }
+                    .padding(16).background(Color.mmCard).cornerRadius(14)
+
+                    // Card account + amount
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Card Account", systemImage: "creditcard")
+                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.mmPrimary)
+
+                        if accountVM.isLoading {
+                            ProgressView()
+                        } else if selectedShowroomId == nil {
+                            Text("Select a showroom first.")
+                                .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
+                        } else if accountVM.accounts.isEmpty {
+                            Text("No active card accounts for this showroom.")
+                                .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
+                        } else {
+                            Picker(selection: $selectedAccountId) {
+                                Text("Select account…").tag(Optional<Int>.none)
+                                ForEach(accountVM.accounts) { acc in
+                                    Text(acc.displayLabel).tag(Optional<Int>.some(acc.id))
+                                }
+                            } label: { Text("Select Account") }
+                            .pickerStyle(.menu)
+                            .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                        }
+
+                        MMTextField(label: "Amount", text: $amount, placeholder: "0.00",
+                                    keyboardType: .decimalPad, autocapitalization: .never)
+                        MMTextField(label: "Notes (optional)", text: $notes, placeholder: "Any remarks...")
+                    }
+                    .padding(16).background(Color.mmCard).cornerRadius(14)
+
+                    MMButton(title: "Submit Card Entry", isLoading: vm.isSubmitting) {
+                        guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
+                        if amt >= Self.largeThreshold { showLargeAmountConfirm = true }
+                        else { Task { await submit() } }
+                    }
+                    .disabled(selectedShowroomId == nil || selectedAccountId == nil)
+                }
+                .padding(20)
+            }
+            .background(Color.mmBackground)
+            .navigationTitle("Add Card Entry")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+            .confirmationDialog("Large Amount", isPresented: $showLargeAmountConfirm, titleVisibility: .visible) {
+                Button("Submit Anyway", role: .destructive) { Task { await submit() } }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("This amount is ≥ Rs. 1,000,000. Are you sure?") }
+        }
+    }
+
+    private func submit() async {
+        guard let sId = selectedShowroomId else { error = "Select a showroom."; return }
+        guard let accId = selectedAccountId else { error = "Select a card account."; return }
+        guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
+        let dateStr: String = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: entryDate) }()
+        error = nil
+        do {
+            try await vm.submit(showroomId: sId, cardAccountId: accId,
+                                amount: amt, notes: notes.isEmpty ? nil : notes,
+                                entryDate: dateStr)
+            success = true; amount = ""; notes = ""; selectedAccountId = nil
+            await onSave()
         } catch { self.error = error.localizedDescription }
     }
 }
