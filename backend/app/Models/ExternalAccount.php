@@ -7,11 +7,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ExternalAccount extends Model
 {
-    protected $fillable = ['name', 'balance', 'cash_account_type'];
+    protected $fillable = ['name', 'cash_account_type'];
 
-    protected $casts = [
-        'balance' => 'decimal:2',
-    ];
+    protected $casts = [];
 
     public function selfTransactions(): HasMany
     {

@@ -16,27 +16,25 @@ class ExternalAccountController extends Controller
     {
         $accounts = ExternalAccount::orderBy('name')->get();
 
-        // Compute live balance: stored opening balance + daily cash entries + self-transfers received − self-transfers sent
-        $accounts->each(function (ExternalAccount $acc) {
+        // Compute live balance: daily cash entries + self-transfers in − self-transfers out
+        $result = $accounts->map(function (ExternalAccount $acc) {
+            $balance = 0.0;
             if ($acc->cash_account_type) {
-                $openingBalance = (float) $acc->balance; // stored base / opening balance
-
                 $cashTotal = (float) DailyCashEntry::where('cash_account_type', $acc->cash_account_type)
                     ->sum('cash_amount');
 
                 $selfIn  = (float) SelfTransaction::where('to_external_account_id', $acc->id)->sum('amount');
                 $selfOut = (float) SelfTransaction::where('from_external_account_id', $acc->id)->sum('amount');
 
-                $acc->balance = $openingBalance + $cashTotal + $selfIn - $selfOut;
+                $balance = $cashTotal + $selfIn - $selfOut;
             }
-        });
-
-        $result = $accounts->map(fn ($a) => [
-            'id'                => $a->id,
-            'name'              => $a->name,
-            'balance'           => $a->balance,
-            'cash_account_type' => $a->cash_account_type,
-        ])->values()->toArray();
+            return [
+                'id'                => $acc->id,
+                'name'              => $acc->name,
+                'balance'           => round($balance, 2),
+                'cash_account_type' => $acc->cash_account_type,
+            ];
+        })->values()->toArray();
 
         // Synthetic "Main Account" — cumulative running balance across all time
         $mainEntries = (float) DailyCashEntry::where('cash_account_type', 'main')->sum('cash_amount');
