@@ -105,11 +105,15 @@ struct AdminDashboardView: View {
         }
 
         // 4 summary cards
+        let mainLiveBalance = extVM.accounts.first(where: { $0.cashAccountType == "main" })?.balance ?? s.today.cashMainAdjusted
+        let manoLiveBalance = extVM.accounts.first(where: { $0.cashAccountType == "mano" })?.balance ?? s.today.cashManoAdjusted
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            SummaryCard(title: "Main Cash",  value: s.today.cashMainAdjusted,
-                        raw: s.today.cashMainTotal, icon: "banknote.fill", color: Color.mmPrimary)
-            SummaryCard(title: "Mano Cash",  value: s.today.cashManoAdjusted,
-                        raw: s.today.cashManoTotal, icon: "person.fill",   color: Color.mmAccent)
+            SummaryCard(title: "Main Account",  value: mainLiveBalance,
+                        raw: s.today.cashMainTotal, icon: "banknote.fill", color: Color.mmPrimary,
+                        sublabel: "Today: \(s.today.cashMainAdjusted.currency)")
+            SummaryCard(title: "Mano Cash",  value: manoLiveBalance,
+                        raw: s.today.cashManoTotal, icon: "person.fill",   color: Color.mmAccent,
+                        sublabel: "Today: \(s.today.cashManoAdjusted.currency)")
             SummaryCard(title: "Card Total", value: s.today.cardAdjusted,
                         raw: s.today.cardTotal,      icon: "creditcard.fill", color: Color(hex: "6366F1"))
             SummaryCard(title: "Grand Total", value: s.today.grandAdjusted,
@@ -163,6 +167,7 @@ private struct SummaryCard: View {
     let raw: Double
     let icon: String
     let color: Color
+    var sublabel: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -189,7 +194,10 @@ private struct SummaryCard: View {
                 Text(value.currency)
                     .font(.system(size: 17, weight: .bold)).foregroundStyle(color)
                     .minimumScaleFactor(0.7).lineLimit(1)
-                if abs(value - raw) > 0.001 {
+                if let sub = sublabel {
+                    Text(sub)
+                        .font(.system(size: 10)).foregroundStyle(Color.mmTextSecondary)
+                } else if abs(value - raw) > 0.001 {
                     Text("Raw: \(raw.currency)")
                         .font(.system(size: 10)).foregroundStyle(Color.mmTextSecondary)
                 }

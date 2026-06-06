@@ -48,4 +48,18 @@ final class AdminUserViewModel: ObservableObject {
         let updated: User = try await api.patch("/admins/\(id)/toggle-active")
         if let idx = admins.firstIndex(where: { $0.id == id }) { admins[idx] = updated }
     }
+
+    func changeRole(userId: Int, newRole: String, showroomId: Int?) async throws {
+        struct ChangeRoleResponse: Decodable { let data: User }
+        isSubmitting = true; defer { isSubmitting = false }
+        var body: [String: Any] = ["role": newRole]
+        if let sId = showroomId { body["showroom_id"] = sId }
+        let resp: ChangeRoleResponse = try await api.patch("/users/\(userId)/change-role", body: body)
+        // Remove from admins list if changed to staff
+        if newRole == "staff" {
+            admins.removeAll { $0.id == userId }
+        } else if let idx = admins.firstIndex(where: { $0.id == userId }) {
+            admins[idx] = resp.data
+        }
+    }
 }

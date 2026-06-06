@@ -170,7 +170,7 @@ struct StaffFormView: View {
     @State private var isActive = true
     @State private var error: String?
 
-    private let roles = ["staff"]
+    private let roles = ["staff", "admin"]
 
     var isEditing: Bool { existing != nil }
 
@@ -240,12 +240,22 @@ struct StaffFormView: View {
         }
         do {
             if let u = existing {
-                try await vm.update(u.id, name: name, email: email, role: role,
-                                    showroomId: selectedShowroomId, isActive: isActive,
-                                    password: password.isEmpty ? nil : password)
+                // Handle role change
+                if role != u.role {
+                    if role == "staff" && selectedShowroomId == nil {
+                        error = "Select a showroom for staff role."; return
+                    }
+                    try await vm.changeRole(userId: u.id, newRole: role,
+                                            showroomId: role == "staff" ? selectedShowroomId : nil)
+                }
+                if role == "staff" {
+                    try await vm.update(u.id, name: name, email: email, role: role,
+                                        showroomId: selectedShowroomId, isActive: isActive,
+                                        password: password.isEmpty ? nil : password)
+                }
             } else {
                 try await vm.create(name: name, email: email, password: password,
-                                    role: role, showroomId: selectedShowroomId, isActive: isActive)
+                                    role: "staff", showroomId: selectedShowroomId, isActive: isActive)
             }
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }

@@ -60,6 +60,18 @@ final class StaffViewModel: ObservableObject {
         let _: Msg = try await api.post("/staff/bulk-delete", body: ["ids": ids])
         staffList.removeAll { ids.contains($0.id) }
     }
+
+    func changeRole(userId: Int, newRole: String, showroomId: Int?) async throws {
+        struct ChangeRoleResponse: Decodable { let data: User }
+        isSubmitting = true; defer { isSubmitting = false }
+        var body: [String: Any] = ["role": newRole]
+        if let sId = showroomId { body["showroom_id"] = sId }
+        let _: ChangeRoleResponse = try await api.patch("/users/\(userId)/change-role", body: body)
+        // Remove from staff list if changed to admin
+        if newRole == "admin" {
+            staffList.removeAll { $0.id == userId }
+        }
+    }
 }
 
 // Convenience memberwise init for User (not Decodable path)

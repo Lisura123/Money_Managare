@@ -27,6 +27,7 @@ struct EntriesHubView: View {
 struct CashEntriesAdminView: View {
     @StateObject private var vm = CashEntryViewModel()
     @StateObject private var showroomVM = ShowroomViewModel()
+    @StateObject private var extVM = ExternalAccountViewModel()
     @State private var filterShowroomId: Int?
     @State private var editTarget: DailyCashEntry?
     @State private var selectedItem: DailyCashEntry?
@@ -36,52 +37,77 @@ struct CashEntriesAdminView: View {
     @State private var bulkDeleteAlert = false
     @State private var showAddEntry = false
 
+    private var mainLiveBalance: Double {
+        extVM.accounts.first(where: { $0.cashAccountType == "main" })?.balance ?? 0
+    }
+
     var body: some View {
-        Group {
-            if vm.isLoading && vm.entries.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(40)
-            } else if vm.entries.isEmpty {
-                EmptyStateView(icon: "banknote", message: "No cash entries")
-            } else {
-                List {
-                    ForEach(vm.entries) { e in
-                        AdminCashEntryRow(entry: e)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if isSelecting {
-                                    if selectedIds.contains(e.id) { selectedIds.remove(e.id) }
-                                    else { selectedIds.insert(e.id) }
-                                } else {
-                                    selectedItem = selectedItem?.id == e.id ? nil : e
+        VStack(spacing: 0) {
+            // Live balance banner
+            if !extVM.accounts.isEmpty {
+                HStack {
+                    Label("Main Account Balance", systemImage: "building.columns.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.mmPrimary)
+                    Spacer()
+                    Text(mainLiveBalance.currency)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(mainLiveBalance >= 0 ? Color.mmSuccess : Color.mmError)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(Color.mmCard)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.mmDivider), alignment: .bottom)
+            }
+
+            Group {
+                if vm.isLoading && vm.entries.isEmpty {
+                    ProgressView().frame(maxWidth: .infinity).padding(40)
+                } else if vm.entries.isEmpty {
+                    EmptyStateView(icon: "banknote", message: "No cash entries")
+                } else {
+                    List {
+                        ForEach(vm.entries) { e in
+                            AdminCashEntryRow(entry: e)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if isSelecting {
+                                        if selectedIds.contains(e.id) { selectedIds.remove(e.id) }
+                                        else { selectedIds.insert(e.id) }
+                                    } else {
+                                        selectedItem = selectedItem?.id == e.id ? nil : e
+                                    }
                                 }
-                            }
-                            .listRowBackground(
-                                (isSelecting ? selectedIds.contains(e.id) : selectedItem?.id == e.id)
-                                    ? Color.mmPrimary.opacity(0.1) : Color.clear
-                            )
-                            .listRowSeparator(.hidden)
-                            .overlay(alignment: .leading) {
-                                if isSelecting {
-                                    Image(systemName: selectedIds.contains(e.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selectedIds.contains(e.id) ? Color.mmPrimary : Color.mmTextSecondary)
-                                        .font(.system(size: 20))
-                                        .padding(.leading, 20)
+                                .listRowBackground(
+                                    (isSelecting ? selectedIds.contains(e.id) : selectedItem?.id == e.id)
+                                        ? Color.mmPrimary.opacity(0.1) : Color.clear
+                                )
+                                .listRowSeparator(.hidden)
+                                .overlay(alignment: .leading) {
+                                    if isSelecting {
+                                        Image(systemName: selectedIds.contains(e.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedIds.contains(e.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                            .font(.system(size: 20))
+                                            .padding(.leading, 20)
+                                    }
                                 }
-                            }
-                            .swipeActions(edge: .trailing) {
-                                if !e.isLocked && !isSelecting {
-                                    Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
+                                .swipeActions(edge: .trailing) {
+                                    if !e.isLocked && !isSelecting {
+                                        Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
+                                    }
                                 }
-                            }
-                            .onAppear {
-                                if e.id == vm.entries.last?.id {
-                                    Task { await vm.fetchEntries() }
+                                .onAppear {
+                                    if e.id == vm.entries.last?.id {
+                                        Task { await vm.fetchEntries() }
+                                    }
                                 }
-                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .refreshable {
+                        await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
+                        await extVM.fetchAll()
                     }
                 }
-                .listStyle(.plain)
-                .refreshable { await vm.fetchEntries(showroomId: filterShowroomId, refresh: true) }
             }
         }
         .background(Color.mmBackground)
@@ -91,6 +117,9 @@ struct CashEntriesAdminView: View {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Select All") { selectedIds = Set(vm.entries.map { $0.id }) }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
@@ -137,6 +166,7 @@ struct CashEntriesAdminView: View {
         .sheet(isPresented: $showAddEntry) {
             AdminAddCashEntryView(showrooms: showroomVM.showrooms) {
                 await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
+                await extVM.fetchAll()
             }
         }
         .sheet(item: $editTarget) { e in
@@ -162,7 +192,8 @@ struct CashEntriesAdminView: View {
         .task {
             async let c: () = vm.fetchEntries(refresh: true)
             async let s: () = showroomVM.fetchAll()
-            _ = await (c, s)
+            async let e: () = extVM.fetchAll()
+            _ = await (c, s, e)
         }
     }
 }
@@ -245,6 +276,7 @@ struct EditCashEntryView: View {
 struct CardEntriesAdminView: View {
     @StateObject private var vm = CardEntryViewModel()
     @StateObject private var showroomVM = ShowroomViewModel()
+    @StateObject private var accountVM = CardAccountViewModel()
     @State private var filterShowroomId: Int?
     @State private var editTarget: DailyCardEntry?
     @State private var selectedItem: DailyCardEntry?
@@ -254,52 +286,89 @@ struct CardEntriesAdminView: View {
     @State private var bulkDeleteAlert = false
     @State private var showAddEntry = false
 
+    private var filteredShowroomBalance: Double {
+        accountVM.accounts.filter { $0.isActive }.reduce(0) { $0 + $1.currentBalance }
+    }
+
+    private var selectedShowroomName: String? {
+        showroomVM.showrooms.first(where: { $0.id == filterShowroomId })?.name
+    }
+
     var body: some View {
-        Group {
-            if vm.isLoading && vm.entries.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(40)
-            } else if vm.entries.isEmpty {
-                EmptyStateView(icon: "creditcard", message: "No card entries")
-            } else {
-                List {
-                    ForEach(vm.entries) { e in
-                        AdminCardEntryRow(entry: e)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                if isSelecting {
-                                    if selectedIds.contains(e.id) { selectedIds.remove(e.id) }
-                                    else { selectedIds.insert(e.id) }
-                                } else {
-                                    selectedItem = selectedItem?.id == e.id ? nil : e
+        VStack(spacing: 0) {
+            // Showroom card balance banner
+            HStack {
+                if let name = selectedShowroomName {
+                    Label("\(name) — Card Balance", systemImage: "creditcard.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "6366F1"))
+                    Spacer()
+                    if accountVM.isLoading {
+                        ProgressView().scaleEffect(0.7)
+                    } else {
+                        Text(filteredShowroomBalance.currency)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(filteredShowroomBalance >= 0 ? Color.mmSuccess : Color.mmError)
+                    }
+                } else {
+                    Label("Select showroom to see balance", systemImage: "creditcard")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.mmTextSecondary)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(Color.mmCard)
+            .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.mmDivider), alignment: .bottom)
+
+            Group {
+                if vm.isLoading && vm.entries.isEmpty {
+                    ProgressView().frame(maxWidth: .infinity).padding(40)
+                } else if vm.entries.isEmpty {
+                    EmptyStateView(icon: "creditcard", message: "No card entries")
+                } else {
+                    List {
+                        ForEach(vm.entries) { e in
+                            AdminCardEntryRow(entry: e)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if isSelecting {
+                                        if selectedIds.contains(e.id) { selectedIds.remove(e.id) }
+                                        else { selectedIds.insert(e.id) }
+                                    } else {
+                                        selectedItem = selectedItem?.id == e.id ? nil : e
+                                    }
                                 }
-                            }
-                            .listRowBackground(
-                                (isSelecting ? selectedIds.contains(e.id) : selectedItem?.id == e.id)
-                                    ? Color.mmPrimary.opacity(0.1) : Color.clear
-                            )
-                            .listRowSeparator(.hidden)
-                            .overlay(alignment: .leading) {
-                                if isSelecting {
-                                    Image(systemName: selectedIds.contains(e.id) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selectedIds.contains(e.id) ? Color.mmPrimary : Color.mmTextSecondary)
-                                        .font(.system(size: 20))
-                                        .padding(.leading, 20)
+                                .listRowBackground(
+                                    (isSelecting ? selectedIds.contains(e.id) : selectedItem?.id == e.id)
+                                        ? Color.mmPrimary.opacity(0.1) : Color.clear
+                                )
+                                .listRowSeparator(.hidden)
+                                .overlay(alignment: .leading) {
+                                    if isSelecting {
+                                        Image(systemName: selectedIds.contains(e.id) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedIds.contains(e.id) ? Color.mmPrimary : Color.mmTextSecondary)
+                                            .font(.system(size: 20))
+                                            .padding(.leading, 20)
+                                    }
                                 }
-                            }
-                            .swipeActions(edge: .trailing) {
-                                if !e.isLocked && !isSelecting {
-                                    Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
+                                .swipeActions(edge: .trailing) {
+                                    if !e.isLocked && !isSelecting {
+                                        Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
+                                    }
                                 }
-                            }
-                            .onAppear {
-                                if e.id == vm.entries.last?.id {
-                                    Task { await vm.fetchEntries() }
+                                .onAppear {
+                                    if e.id == vm.entries.last?.id {
+                                        Task { await vm.fetchEntries() }
+                                    }
                                 }
-                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .refreshable {
+                        await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
+                        if let sId = filterShowroomId { await accountVM.fetchAll(showroomId: sId) }
                     }
                 }
-                .listStyle(.plain)
-                .refreshable { await vm.fetchEntries(showroomId: filterShowroomId, refresh: true) }
             }
         }
         .background(Color.mmBackground)
@@ -308,6 +377,9 @@ struct CardEntriesAdminView: View {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Select All") { selectedIds = Set(vm.entries.map { $0.id }) }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
@@ -322,9 +394,18 @@ struct CardEntriesAdminView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button("All") { filterShowroomId = nil; Task { await vm.fetchEntries(showroomId: nil, refresh: true) } }
+                        Button("All") {
+                            filterShowroomId = nil
+                            Task { await vm.fetchEntries(showroomId: nil, refresh: true) }
+                        }
                         ForEach(showroomVM.showrooms) { s in
-                            Button(s.name) { filterShowroomId = s.id; Task { await vm.fetchEntries(showroomId: s.id, refresh: true) } }
+                            Button(s.name) {
+                                filterShowroomId = s.id
+                                Task {
+                                    await vm.fetchEntries(showroomId: s.id, refresh: true)
+                                    await accountVM.fetchAll(showroomId: s.id)
+                                }
+                            }
                         }
                     } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
                 }
@@ -351,6 +432,7 @@ struct CardEntriesAdminView: View {
         .sheet(isPresented: $showAddEntry) {
             AdminAddCardEntryView(showrooms: showroomVM.showrooms) {
                 await vm.fetchEntries(showroomId: filterShowroomId, refresh: true)
+                if let sId = filterShowroomId { await accountVM.fetchAll(showroomId: sId) }
             }
         }
         .sheet(item: $editTarget) { e in
@@ -508,6 +590,9 @@ struct CashAdjustmentsView: View {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Select All") { selectedIds = Set(vm.adjustments.map { $0.id }) }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
@@ -740,6 +825,9 @@ struct CardAdjustmentsView: View {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isSelecting = false; selectedIds = [] }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Select All") { selectedIds = Set(vm.adjustments.map { $0.id }) }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }

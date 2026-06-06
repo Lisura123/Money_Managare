@@ -96,6 +96,9 @@ struct StaffSegmentView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { isSelecting = false; selectedIds = [] }
                 }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Select All") { selectedIds = Set(vm.staffList.map { $0.id }) }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
                         .foregroundStyle(Color.mmError)
@@ -223,6 +226,11 @@ struct AdminSegmentView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { isSelecting = false; selectedIds = [] }
                     }
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Select All") {
+                            selectedIds = Set(vm.admins.filter { $0.id != auth.user?.id }.map { $0.id })
+                        }
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
                             .foregroundStyle(Color.mmError)
@@ -335,11 +343,14 @@ struct AdminUserFormView: View {
     let onSave: () async -> Void
 
     @StateObject private var vm = AdminUserViewModel()
+    @StateObject private var showroomVM = ShowroomViewModel()
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
     @State private var isActive = true
+    @State private var selectedRole = "admin"
+    @State private var selectedShowroomId: Int?
     @State private var error: String?
 
     var isEditing: Bool { existing != nil }
@@ -373,6 +384,22 @@ struct AdminUserFormView: View {
                     }
                     Toggle("Active", isOn: $isActive)
                 }
+                if isEditing {
+                    Section("Role") {
+                        Picker("Role", selection: $selectedRole) {
+                            Text("Admin").tag("admin")
+                            Text("Staff").tag("staff")
+                        }
+                        if selectedRole == "staff" {
+                            Picker("Showroom", selection: $selectedShowroomId) {
+                                Text("Select Showroom").tag(Optional<Int>.none)
+                                ForEach(showroomVM.showrooms) { s in
+                                    Text(s.name).tag(Optional(s.id))
+                                }
+                            }
+                        }
+                    }
+                }
                 if let e = error {
                     Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) }
                 }
@@ -389,16 +416,27 @@ struct AdminUserFormView: View {
             .onAppear {
                 if let u = existing {
                     name = u.name; email = u.email; isActive = u.isActive
+                    selectedRole = u.role
                 }
             }
+            .task { if isEditing { await showroomVM.fetchAll() } }
         }
     }
 
     private func save() async {
         do {
             if let u = existing {
-                try await vm.update(u.id, name: name, email: email, isActive: isActive,
-                                    password: password.isEmpty ? nil : password)
+                if selectedRole != u.role {
+                    if selectedRole == "staff" && selectedShowroomId == nil {
+                        error = "Select a showroom for staff role."; return
+                    }
+                    try await vm.changeRole(userId: u.id, newRole: selectedRole,
+                                            showroomId: selectedRole == "staff" ? selectedShowroomId : nil)
+                }
+                if selectedRole == "admin" {
+                    try await vm.update(u.id, name: name, email: email, isActive: isActive,
+                                        password: password.isEmpty ? nil : password)
+                }
             } else {
                 try await vm.create(name: name, email: email, password: password, isActive: isActive)
             }

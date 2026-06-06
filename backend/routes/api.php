@@ -168,6 +168,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/edit-requests/{editRequest}/reject', [EditRequestController::class, 'reject']);
 
         // PDF Reports
+        Route::get('/reports/summary', [ReportController::class, 'summary']);
         Route::prefix('reports/pdf')->group(function () {
             Route::get('/daily-summary',     [ReportController::class, 'dailySummary']);
             Route::get('/showroom',          [ReportController::class, 'showroom']);
