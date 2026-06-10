@@ -182,4 +182,4 @@ cd "/Users/lisura/Desktop/Money Manager/staff-web" && VITE_API_BASE_URL=https://
 ```
 The admin account email - admin@admin.com, password - Test1234!
 
-personal access token (classic) - [TOKEN_REMOVED]
+personal access token (classic) - [stored securely, not committed to git]
