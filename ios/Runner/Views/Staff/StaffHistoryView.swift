@@ -8,6 +8,7 @@ private enum DatePreset: String, CaseIterable, Identifiable {
 struct StaffHistoryView: View {
     @StateObject private var cashVM = CashEntryViewModel()
     @StateObject private var cardVM = CardEntryViewModel()
+    @StateObject private var editWindowVM = EditWindowViewModel()
     @State private var segment = 0           // 0=Cash, 1=Card
     @State private var cashAccountFilter = "all"  // all / main / mano
     @State private var datePreset: DatePreset = .today
@@ -26,7 +27,7 @@ struct StaffHistoryView: View {
                 // Segment
                 Picker("", selection: $segment) {
                     Text("Cash").tag(0)
-                    Text("Card").tag(1)
+                    Text("Bank").tag(1)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
@@ -35,12 +36,6 @@ struct StaffHistoryView: View {
                 // Filters
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        if segment == 0 {
-                            FilterChip(label: "All",  isSelected: cashAccountFilter == "all")  { cashAccountFilter = "all" }
-                            FilterChip(label: "Main", isSelected: cashAccountFilter == "main") { cashAccountFilter = "main" }
-                            FilterChip(label: "Mano", isSelected: cashAccountFilter == "mano") { cashAccountFilter = "mano" }
-                            Divider().frame(height: 22)
-                        }
                         ForEach(DatePreset.allCases) { preset in
                             FilterChip(label: preset.rawValue, isSelected: datePreset == preset) {
                                 datePreset = preset
@@ -117,7 +112,10 @@ struct StaffHistoryView: View {
             .background(Color.mmBackground)
             .navigationTitle("My History")
         }
-        .task { await applyFilters() }
+        .task {
+            await editWindowVM.fetch()
+            await applyFilters()
+        }
         .sheet(item: $showEditRequest) { target in
             SubmitEditRequestView(
                 entryType: target.entryType,
@@ -142,7 +140,7 @@ struct StaffHistoryView: View {
         HStack(spacing: 0) {
             summaryCell(label: "Cash", value: cashTotal, color: .mmAccent)
             Divider().frame(height: 28)
-            summaryCell(label: "Card", value: cardTotal, color: .mmPrimary)
+            summaryCell(label: "Bank", value: cardTotal, color: .mmPrimary)
             Divider().frame(height: 28)
             summaryCell(label: "Total", value: combined, color: .mmSuccess)
         }
@@ -169,12 +167,12 @@ struct StaffHistoryView: View {
         } else {
             List {
                 ForEach(cashVM.myHistory) { entry in
-                    CashEntryRow(entry: entry, onEditRequest: {
+                    CashEntryRow(entry: entry, onEditRequest: editWindowVM.isOpen ? {
                         showEditRequest = SubmitEditRequestTarget(
                             id: entry.id, entryType: "cash",
                             originalAmount: entry.cashAmount, originalNotes: entry.notes
                         )
-                    })
+                    } : nil)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .onAppear {
@@ -199,16 +197,16 @@ struct StaffHistoryView: View {
         if cardVM.isLoading && cardVM.myHistory.isEmpty {
             ProgressView().frame(maxWidth: .infinity).padding(40)
         } else if cardVM.myHistory.isEmpty {
-            EmptyStateView(icon: "creditcard", message: "No card entries found")
+            EmptyStateView(icon: "creditcard", message: "No bank entries found")
         } else {
             List {
                 ForEach(cardVM.myHistory) { entry in
-                    CardEntryRow(entry: entry, onEditRequest: {
+                    CardEntryRow(entry: entry, onEditRequest: editWindowVM.isOpen ? {
                         showEditRequest = SubmitEditRequestTarget(
                             id: entry.id, entryType: "card",
                             originalAmount: entry.amount, originalNotes: entry.notes
                         )
-                    })
+                    } : nil)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .onAppear {

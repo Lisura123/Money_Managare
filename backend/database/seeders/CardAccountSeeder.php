@@ -10,28 +10,82 @@ class CardAccountSeeder extends Seeder
 {
     public function run(): void
     {
-        $accounts = [
-            // Downtown Showroom
-            ['bank_name' => 'First National Bank', 'last_four' => '1234', 'current_balance' => 15000.00],
-            ['bank_name' => 'City Bank',            'last_four' => '5678', 'current_balance' => 8500.00],
-            // Northside Showroom
-            ['bank_name' => 'State Bank',           'last_four' => '2345', 'current_balance' => 22000.00],
-            ['bank_name' => 'Metro Credit Union',   'last_four' => '6789', 'current_balance' => 5000.00],
-            // Eastside Showroom
-            ['bank_name' => 'Commerce Bank',        'last_four' => '3456', 'current_balance' => 11000.00],
-            ['bank_name' => 'Traders Bank',         'last_four' => '7890', 'current_balance' => 7500.00],
+        // Bank accounts grouped by showroom name. last_four is the trailing
+        // identifier shown in the UI; balances start at 0.
+        $accountsByShowroom = [
+            'CAMERALK (PVT) LTD' => [
+                ['Sampath', '3205'],
+                ['HNB', '5456'],
+                ['HNB', '2568'],
+                ['Peoples Bank', '3109'],
+                ['Union Bank (USD)', '1071'],
+                ['Union Bank (LKR)', '4808'],
+                ['NTB', '3370'],
+                ['Sampath', '7954'],
+                ['Sampath', '7946'],
+                ['HNB', '9453'],
+                ['HNB', '5294'],
+                ['Sampath', '7461'],
+            ],
+            'SONY ASIA PASIFIC (PVT) LTD' => [
+                ['Sampath', '3206'],
+                ['Commercial', '0538'],
+                ['HNB', '8553'],
+                ['NTB', '2464'],
+                ['Sampath', '1244'],
+                ['Sampath', '9574'],
+            ],
+            'KOSMISCH GLOBAL (PVT) LTD' => [
+                ['Sampath', '9258'],
+                ['Sampath', '4779'],
+                ['Sampath', '0429'],
+                ['NTB', '4062'],
+                ['HNB', '8696'],
+            ],
+            'CLK KANDY (PVT) LTD' => [
+                ['DFCC', '9037'],
+                ['HNB', '8571'],
+                ['NTB', '2488'],
+                ['DFCC', '2427'],
+            ],
+            'CAMERA DOT LK (PVT) LTD' => [
+                ['Pan Asia Bank', '0810'],
+                ['NTB', '2419'],
+                ['Pan Asia Bank', '3104'],
+            ],
+            'CLK PHOTOGRAPHY (PVT) LTD' => [
+                ['Sampath', '9876'],
+                ['NTB', '3751'],
+            ],
+            'NM CREATION' => [
+                ['Sampath', '0135'],
+                ['NTB', '3942'],
+            ],
+            'MAGNUS INTERNATIONAL (PVT) LTD' => [
+                ['Sampath', '9663'],
+                ['Sampath', '9566'],
+            ],
         ];
 
-        $showrooms = Showroom::orderBy('id')->get();
+        foreach ($accountsByShowroom as $showroomName => $accounts) {
+            $showroom = Showroom::where('name', $showroomName)->first();
+            if (! $showroom) {
+                continue;
+            }
 
-        $perShowroom = array_chunk($accounts, 2);
-
-        foreach ($showrooms as $i => $showroom) {
-            foreach ($perShowroom[$i] as $data) {
-                CardAccount::create(array_merge($data, [
-                    'showroom_id' => $showroom->id,
-                    'is_active'   => true,
-                ]));
+            foreach ($accounts as [$bankName, $lastFour]) {
+                CardAccount::firstOrCreate(
+                    [
+                        'showroom_id' => $showroom->id,
+                        'bank_name'   => $bankName,
+                        'last_four'   => $lastFour,
+                    ],
+                    [
+                        'current_balance' => 0.00,
+                        'opening_balance' => 0.00,
+                        'is_active'       => true,
+                    ],
+                );
             }
         }
     }

@@ -53,6 +53,16 @@ class AdminCardAdjustmentController extends Controller
                 $q->where('card_account_id', $request->card_account_id));
         }
 
+        if ($request->filled('date')) {
+            $query->whereHas('dailyCardEntry', fn ($q) =>
+                $q->whereDate('entry_date', $request->date));
+        }
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereHas('dailyCardEntry', fn ($q) =>
+                $q->whereBetween('entry_date', [$request->from, $request->to]));
+        }
+
         $adjustments = $query->paginate(20);
         return AdminCardAdjustmentResource::collection($adjustments)->toResponse(request());
     }

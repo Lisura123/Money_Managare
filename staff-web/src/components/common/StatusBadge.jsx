@@ -16,7 +16,7 @@ const STATUS_CONFIG = {
     classes: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300',
   },
   card: {
-    label: 'Card',
+    label: 'Bank',
     classes: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300',
   },
   main: {

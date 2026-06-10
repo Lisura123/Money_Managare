@@ -69,7 +69,7 @@ export default function HistoryTable({ entries = [], loading = false }) {
                 { label: 'Date', field: 'entry_date' },
                 { label: 'Type', field: null },
                 { label: 'Amount', field: 'amount' },
-                { label: 'Card / Account', field: null },
+                { label: 'Bank / Account', field: null },
                 { label: 'Notes', field: null },
                 { label: 'Status', field: null },
                 { label: 'Actions', field: null },

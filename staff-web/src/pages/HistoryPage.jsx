@@ -129,7 +129,7 @@ export default function HistoryPage() {
             <p className="font-bold text-teal">{formatCurrency(totals.cashTotal)}</p>
           </div>
           <div className="flex-1 px-4 py-3 text-center">
-            <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">Card</p>
+            <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">Bank</p>
             <p className="font-bold text-navy dark:text-white">{formatCurrency(totals.cardTotal)}</p>
           </div>
           <div className="flex-1 px-4 py-3 text-center">

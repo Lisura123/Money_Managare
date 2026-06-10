@@ -99,9 +99,14 @@ final class CashEntryViewModel: ObservableObject {
 
     // MARK: - Adjustments
 
-    func fetchAdjustments() async {
+    func fetchAdjustments(date: String? = nil, from: String? = nil, to: String? = nil) async {
+        var q: [String: Any] = [:]
+        if let d = date { q["date"] = d }
+        if let f = from { q["from"] = f }
+        if let t = to   { q["to"]   = t }
         do {
-            adjustments = try await api.get("/adjustments/cash")
+            let resp: PaginatedResponse<AdminCashAdjustment> = try await api.get("/adjustments/cash", query: q)
+            adjustments = resp.data
         } catch { self.error = error.localizedDescription }
     }
 
@@ -116,13 +121,14 @@ final class CashEntryViewModel: ObservableObject {
         } catch { /* silently ignore */ }
     }
 
-    func createAdjustment(adjustedAmount: Double, reason: String, cashAccountType: String) async throws {
+    func createAdjustment(adjustedAmount: Double, reason: String, cashAccountType: String, showroomId: Int? = nil) async throws {
         isSubmitting = true; defer { isSubmitting = false }
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "adjusted_amount": adjustedAmount,
             "reason": reason,
             "cash_account_type": cashAccountType
         ]
+        if let sid = showroomId { body["showroom_id"] = sid }
         let new: AdminCashAdjustment = try await api.post("/adjustments/cash", body: body)
         adjustments.insert(new, at: 0)
     }

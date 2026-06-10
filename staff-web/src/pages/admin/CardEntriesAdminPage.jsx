@@ -9,6 +9,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import { useFetch } from '../../hooks/useFetch'
 import { ENDPOINTS } from '../../utils/constants'
+import { prioritizeShowrooms, showroomOptionLabel } from '../../utils/showroomPriority'
 import { formatCurrency, formatDate, todayString } from '../../utils/formatters'
 import api from '../../config/api'
 
@@ -177,7 +178,7 @@ export default function CardEntriesAdminPage() {
             <label className="form-label">Showroom</label>
             <select className="form-input" value={showroomId} onChange={e => { setShowroomId(e.target.value); setPage(1) }}>
               <option value="">All Showrooms</option>
-              {showrooms.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {prioritizeShowrooms(showrooms).map(s => <option key={s.id} value={s.id}>{showroomOptionLabel(s.name)}</option>)}
             </select>
           </div>
         </div>
@@ -220,11 +221,9 @@ export default function CardEntriesAdminPage() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
-                  {!entry.is_locked && (
-                    <button onClick={() => setEditEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-teal hover:bg-teal/10 transition-colors" title="Edit">
-                      <MdEdit className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button onClick={() => setEditEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-teal hover:bg-teal/10 transition-colors" title="Edit">
+                    <MdEdit className="w-4 h-4" />
+                  </button>
                   <button onClick={() => setAdjEntry(entry)} className="p-1.5 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-500/10 transition-colors" title="Add Adjustment">
                     <MdTune className="w-4 h-4" />
                   </button>

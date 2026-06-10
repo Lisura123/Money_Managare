@@ -7,6 +7,7 @@ use App\Http\Requests\ShowroomRequest;
 use App\Http\Resources\ShowroomResource;
 use App\Models\Showroom;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ShowroomController extends Controller
 {
@@ -37,5 +38,12 @@ class ShowroomController extends Controller
     {
         $showroom->delete();
         return response()->json(['message' => 'Showroom deleted.']);
+    }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'integer']);
+        $count = Showroom::whereIn('id', $request->ids)->delete();
+        return response()->json(['message' => "Deleted {$count} showrooms."]);
     }
 }

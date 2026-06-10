@@ -16,9 +16,21 @@ class SelfTransactionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $transactions = SelfTransaction::with('fromCardAccount', 'fromExternalAccount', 'toCardAccount', 'admin')
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $query = SelfTransaction::with('fromCardAccount', 'fromExternalAccount', 'toCardAccount', 'toExternalAccount', 'admin')
+            ->orderByDesc('created_at');
+
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('created_at', [
+                $request->from . ' 00:00:00',
+                $request->to . ' 23:59:59',
+            ]);
+        }
+
+        $transactions = $query->paginate(20);
 
         return response()->json($transactions);
     }
@@ -38,11 +50,11 @@ class SelfTransactionController extends Controller
                 $from->decrement('current_balance', $request->amount);
                 $fromCardId = $from->id;
             } elseif ($request->from_external_account_id) {
-                $fromExt = ExternalAccount::lockForUpdate()->findOrFail($request->from_external_account_id);
-                if ($fromExt->balance < $request->amount) {
+                // External (e.g. Mano) balances are computed, not stored — just record the link.
+                $fromExt = ExternalAccount::findOrFail($request->from_external_account_id);
+                if ($this->externalBalance($fromExt) < $request->amount) {
                     abort(422, 'Insufficient balance in the source account.');
                 }
-                $fromExt->decrement('balance', $request->amount);
                 $fromExternalId = $fromExt->id;
             } elseif ($request->from_account_type === 'main') {
                 $fromAccountType = 'main'; // main cash is computed; just record
@@ -53,8 +65,8 @@ class SelfTransactionController extends Controller
             $toAccountType = $request->to_account_type; // 'main' or null
 
             if ($request->to_external_account_id) {
-                $ext = ExternalAccount::lockForUpdate()->findOrFail($request->to_external_account_id);
-                $ext->increment('balance', $request->amount);
+                // External (e.g. Mano) balances are computed — just record the link.
+                $ext = ExternalAccount::findOrFail($request->to_external_account_id);
                 $toExternalId = $ext->id;
             } elseif ($request->to_card_account_id) {
                 $to = CardAccount::lockForUpdate()->findOrFail($request->to_card_account_id);
@@ -80,9 +92,27 @@ class SelfTransactionController extends Controller
         });
 
         return response()->json(
-            new SelfTransactionResource($transaction->load('fromCardAccount', 'fromExternalAccount', 'toCardAccount', 'admin')),
+            new SelfTransactionResource($transaction->load('fromCardAccount', 'fromExternalAccount', 'toCardAccount', 'toExternalAccount', 'admin')),
             201
         );
+    }
+
+    /**
+     * Computed live balance for an external (cash) account:
+     * SUM(matching cash entries) + SUM(self-transfers in) − SUM(self-transfers out).
+     */
+    private function externalBalance(ExternalAccount $acc): float
+    {
+        if (! $acc->cash_account_type) {
+            return 0.0;
+        }
+
+        $cashTotal = (float) \App\Models\DailyCashEntry::where('cash_account_type', $acc->cash_account_type)
+            ->sum('cash_amount');
+        $selfIn  = (float) SelfTransaction::where('to_external_account_id', $acc->id)->sum('amount');
+        $selfOut = (float) SelfTransaction::where('from_external_account_id', $acc->id)->sum('amount');
+
+        return $cashTotal + $selfIn - $selfOut;
     }
 
     public function destroy(SelfTransaction $selfTransaction): JsonResponse
@@ -95,24 +125,16 @@ class SelfTransactionController extends Controller
                 CardAccount::lockForUpdate()
                     ->findOrFail($selfTransaction->from_card_account_id)
                     ->increment('current_balance', $amount);
-            } elseif ($selfTransaction->from_external_account_id) {
-                ExternalAccount::lockForUpdate()
-                    ->findOrFail($selfTransaction->from_external_account_id)
-                    ->increment('balance', $amount);
             }
-            // from_account_type = 'main': computed, no direct update needed
+            // from_external_account_id / from_account_type = 'main': computed, no direct update needed
 
             // Reverse: debit the destination
             if ($selfTransaction->to_card_account_id) {
                 CardAccount::lockForUpdate()
                     ->findOrFail($selfTransaction->to_card_account_id)
                     ->decrement('current_balance', $amount);
-            } elseif ($selfTransaction->to_external_account_id) {
-                ExternalAccount::lockForUpdate()
-                    ->findOrFail($selfTransaction->to_external_account_id)
-                    ->decrement('balance', $amount);
             }
-            // to_account_type = 'main': computed, no direct update needed
+            // to_external_account_id / to_account_type = 'main': computed, no direct update needed
 
             $selfTransaction->delete();
         });
@@ -134,21 +156,15 @@ class SelfTransactionController extends Controller
                     CardAccount::lockForUpdate()
                         ->findOrFail($tx->from_card_account_id)
                         ->increment('current_balance', $amount);
-                } elseif ($tx->from_external_account_id) {
-                    ExternalAccount::lockForUpdate()
-                        ->findOrFail($tx->from_external_account_id)
-                        ->increment('balance', $amount);
                 }
+                // from_external_account_id / from_account_type = 'main': computed, no direct update needed
 
                 if ($tx->to_card_account_id) {
                     CardAccount::lockForUpdate()
                         ->findOrFail($tx->to_card_account_id)
                         ->decrement('current_balance', $amount);
-                } elseif ($tx->to_external_account_id) {
-                    ExternalAccount::lockForUpdate()
-                        ->findOrFail($tx->to_external_account_id)
-                        ->decrement('balance', $amount);
                 }
+                // to_external_account_id / to_account_type = 'main': computed, no direct update needed
 
                 $tx->delete();
             }

@@ -87,11 +87,15 @@ final class CardEntryViewModel: ObservableObject {
         if let idx = myHistory.firstIndex(where: { $0.id == id }) { myHistory[idx] = updated }
     }
 
-    func fetchAdjustments(cardAccountId: Int? = nil) async {
+    func fetchAdjustments(cardAccountId: Int? = nil, date: String? = nil, from: String? = nil, to: String? = nil) async {
         var q: [String: Any] = [:]
         if let c = cardAccountId { q["card_account_id"] = c }
+        if let d = date { q["date"] = d }
+        if let f = from { q["from"] = f }
+        if let t = to   { q["to"]   = t }
         do {
-            adjustments = try await api.get("/adjustments/card", query: q)
+            let resp: PaginatedResponse<AdminCardAdjustment> = try await api.get("/adjustments/card", query: q)
+            adjustments = resp.data
         } catch { self.error = error.localizedDescription }
     }
 

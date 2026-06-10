@@ -15,12 +15,12 @@ import api from '../../config/api'
 const TABLE_OPTIONS = [
   { value: '', label: 'All Types' },
   { value: 'daily_cash_entries', label: 'Cash Entries' },
-  { value: 'daily_card_entries', label: 'Card Entries' },
-  { value: 'card_accounts', label: 'Card Accounts' },
+  { value: 'daily_card_entries', label: 'Bank Entries' },
+  { value: 'card_accounts', label: 'Bank Accounts' },
   { value: 'self_transactions', label: 'Self Transfers' },
   { value: 'cash_transactions', label: 'Cash Transfers' },
   { value: 'admin_cash_adjustments', label: 'Cash Adjustments' },
-  { value: 'admin_card_adjustments', label: 'Card Adjustments' },
+  { value: 'admin_card_adjustments', label: 'Bank Adjustments' },
   { value: 'users', label: 'Users' },
   { value: 'showrooms', label: 'Showrooms' },
 ]

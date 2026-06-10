@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import PageHeader from '../../components/common/PageHeader'
 import { useFetch } from '../../hooks/useFetch'
 import { ENDPOINTS } from '../../utils/constants'
+import { prioritizeShowrooms, showroomOptionLabel } from '../../utils/showroomPriority'
 import api from '../../config/api'
 
 async function downloadPdf(url, filename) {
@@ -154,7 +155,7 @@ export default function ReportsPage() {
           <label className={labelClass}>Showroom</label>
           <select className={inputClass} value={srShowroom} onChange={e => setSrShowroom(e.target.value)}>
             <option value="">Select showroom</option>
-            {showrooms.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {prioritizeShowrooms(showrooms).map(s => <option key={s.id} value={s.id}>{showroomOptionLabel(s.name)}</option>)}
           </select>
         </div>
         <div>
@@ -169,13 +170,13 @@ export default function ReportsPage() {
 
       {/* Card Statement */}
       <ReportCard
-        title="Card Statement"
-        description="Card transactions for a specific card account."
+        title="Bank Statement"
+        description="Bank transactions for a specific bank account."
         onGenerate={handleCard}
         loading={csLoading}
       >
         <div className="col-span-2 sm:col-span-3">
-          <label className={labelClass}>Card Account</label>
+          <label className={labelClass}>Bank Account</label>
           <select className={inputClass} value={csCard} onChange={e => setCsCard(e.target.value)}>
             <option value="">Select card account</option>
             {cardAccounts.map(c => <option key={c.id} value={c.id}>{c.bank_name} ···{c.last_four}{c.label ? ` (${c.label})` : ''}{c.showroomName ? ` — ${c.showroomName}` : ''}</option>)}

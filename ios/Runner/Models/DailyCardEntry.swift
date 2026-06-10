@@ -17,7 +17,7 @@ struct DailyCardEntry: Decodable, Identifiable {
     let updatedAt: String?
 
     var displayCard: String {
-        guard let b = bankName, let l = lastFour else { return "Card" }
+        guard let b = bankName, let l = lastFour else { return "Bank" }
         return "\(b) •••• \(l)"
     }
 

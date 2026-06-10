@@ -32,6 +32,11 @@ class SelfTransaction extends Model
         return $this->belongsTo(CardAccount::class, 'to_card_account_id');
     }
 
+    public function toExternalAccount()
+    {
+        return $this->belongsTo(ExternalAccount::class, 'to_external_account_id');
+    }
+
     public function admin()
     {
         return $this->belongsTo(User::class, 'admin_id');

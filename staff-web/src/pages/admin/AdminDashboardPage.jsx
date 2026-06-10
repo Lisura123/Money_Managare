@@ -5,6 +5,7 @@ import { useFetch } from '../../hooks/useFetch'
 import { useAuth } from '../../hooks/useAuth'
 import { ENDPOINTS } from '../../utils/constants'
 import { formatCurrency, getGreeting } from '../../utils/formatters'
+import { prioritizeShowrooms, isFlagshipShowroom } from '../../utils/showroomPriority'
 import { Link } from 'react-router-dom'
 
 const POLL = 60_000
@@ -43,7 +44,7 @@ function ShowroomRow({ snap }) {
           <p className="text-sm font-medium text-navy dark:text-gray-200">{formatCurrency(snap.cash_mano_adjusted ?? snap.cash_mano_total)}</p>
         </div>
         <div>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500">Card</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">Bank</p>
           <p className="text-sm font-medium text-navy dark:text-gray-200">{formatCurrency(snap.card_adjusted ?? snap.card_total)}</p>
         </div>
         <div className="ml-auto text-right">
@@ -97,13 +98,13 @@ export default function AdminDashboardPage() {
   const extAccounts = Array.isArray(extAccountsRaw) ? extAccountsRaw : (extAccountsRaw?.data || [])
 
   // Showroom filter options for Account Balances
-  const showroomOptions = [...new Map(
+  const showroomOptions = prioritizeShowrooms([...new Map(
     cardAccounts.filter(a => a.showroom?.name || a.showroom_name).map(a => {
       const id = a.showroom_id
       const name = a.showroom?.name || a.showroom_name
       return [id, { id, name }]
     })
-  ).values()].sort((a, b) => a.name.localeCompare(b.name))
+  ).values()].sort((a, b) => a.name.localeCompare(b.name)))
 
   const filteredCards = showroomFilter
     ? cardAccounts.filter(a => a.showroom_id === showroomFilter)
@@ -194,7 +195,7 @@ export default function AdminDashboardPage() {
           colorClass="text-navy dark:text-white"
         />
         <StatCard
-          label="Card Total"
+          label="Bank Total"
           adjValue={today?.card_adjusted}
           rawValue={today?.card_total}
           colorClass="text-[#6366F1]"
@@ -245,7 +246,7 @@ export default function AdminDashboardPage() {
                     showroomFilter === s.id ? 'bg-teal text-white' : 'bg-teal/10 text-teal'
                   }`}
                 >
-                  {s.name}
+                  {isFlagshipShowroom(s.name) ? `★ ${s.name}` : s.name}
                 </button>
               ))}
             </div>

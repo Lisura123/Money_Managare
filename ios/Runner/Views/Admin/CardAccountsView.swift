@@ -22,8 +22,9 @@ struct CardAccountListView: View {
                             FilterChip(label: "All", isSelected: filterShowroomId == nil) {
                                 filterShowroomId = nil
                             }
-                            ForEach(showroomVM.showrooms) { s in
-                                FilterChip(label: s.name, isSelected: filterShowroomId == s.id) {
+                            ForEach(showroomVM.showrooms.prioritized()) { s in
+                                FilterChip(label: s.isFlagship ? "★ \(s.name)" : s.name,
+                                           isSelected: filterShowroomId == s.id) {
                                     filterShowroomId = s.id
                                 }
                             }
@@ -38,7 +39,7 @@ struct CardAccountListView: View {
                     if vm.isLoading && vm.accounts.isEmpty {
                         ProgressView().frame(maxWidth: .infinity).padding(40)
                     } else if filtered.isEmpty {
-                        EmptyStateView(icon: "creditcard", message: "No card accounts")
+                        EmptyStateView(icon: "creditcard", message: "No bank accounts")
                     } else {
                         List {
                             ForEach(filtered) { acc in
@@ -58,7 +59,7 @@ struct CardAccountListView: View {
                 }
                 .background(Color.mmBackground)
             }
-            .navigationTitle("Card Accounts")
+            .navigationTitle("Bank Accounts")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showForm = true } label: {
@@ -93,7 +94,7 @@ struct CardAccountRow: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.mmPrimary.opacity(0.08))
                     .frame(width: 44, height: 30)
-                Text("CARD").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                Text("BANK").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.mmPrimary)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(account.displayLabel).font(.system(size: 14, weight: .medium))
@@ -140,7 +141,7 @@ struct CardAccountDetailView: View {
                         }
                     }
                 }
-                SectionHeader(title: "Recent Card Entries")
+                SectionHeader(title: "Recent Bank Entries")
                 if cardVM.isLoading && cardVM.entries.isEmpty {
                     ProgressView()
                 } else if cardVM.entries.isEmpty {
@@ -178,7 +179,9 @@ struct CardAccountFormView: View {
                 Section("Details") {
                     Picker("Showroom", selection: $selectedShowroomId) {
                         Text("Select…").tag(Optional<Int>.none)
-                        ForEach(showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                        ForEach(showrooms.prioritized()) { s in
+                            ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
+                        }
                     }
                     TextField("Bank Name", text: $bankName)
                     TextField("Last 4 Digits", text: $lastFour)
@@ -191,7 +194,7 @@ struct CardAccountFormView: View {
                     Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) }
                 }
             }
-            .navigationTitle(existing == nil ? "New Card Account" : "Edit Card Account")
+            .navigationTitle(existing == nil ? "New Bank Account" : "Edit Bank Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

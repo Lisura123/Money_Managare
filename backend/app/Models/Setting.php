@@ -27,4 +27,14 @@ class Setting extends Model
 
         return $now >= $start && $now <= $end;
     }
+
+    public static function cashEntriesEnabled(): bool
+    {
+        return static::get('cash_entries_enabled', '1') === '1';
+    }
+
+    public static function bankEntriesEnabled(): bool
+    {
+        return static::get('bank_entries_enabled', '1') === '1';
+    }
 }

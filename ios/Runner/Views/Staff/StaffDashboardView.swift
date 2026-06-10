@@ -67,7 +67,7 @@ struct StaffHomeTab: View {
                             ActionButton(title: "Cash Entry", icon: "banknote", color: .mmAccent) {
                                 showCashEntry = true
                             }
-                            ActionButton(title: "Card Entry", icon: "creditcard", color: .mmPrimary) {
+                            ActionButton(title: "Bank Entry", icon: "creditcard", color: .mmPrimary) {
                                 showCardEntry = true
                             }
                         }
@@ -137,13 +137,13 @@ struct TodayStatusCard: View {
 
             if status.card.count > 0 {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Card Entries (\(status.card.count))")
+                    Text("Bank Entries (\(status.card.count))")
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
                     Text(status.card.total.currency)
                         .font(.system(size: 16, weight: .bold)).foregroundStyle(Color.mmPrimary)
                 }
             } else {
-                Text("No card entries today")
+                Text("No bank entries today")
                     .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
             }
         }

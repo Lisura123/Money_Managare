@@ -20,7 +20,7 @@ export default function CashEntryPage() {
 
   const accountLabel = ACCOUNT_TYPE_LABELS[accountType] || 'Account'
 
-  const { isOpen, windowStart, windowEnd, loading: windowLoading } = useEditWindow()
+  const { isOpen, windowStart, windowEnd, cashEntriesEnabled, loading: windowLoading } = useEditWindow()
 
   // Fetch today's entries for this account to show as reference
   const { data: todayHistory, loading: todayLoading, error: todayError, refetch: refetchToday } = useFetch(
@@ -44,7 +44,21 @@ export default function CashEntryPage() {
           title={`New Cash Entry — ${accountLabel}`}
           subtitle="Submit today's cash amount for your showroom."
         />
-        {!windowLoading && !isOpen ? (
+        {!windowLoading && !cashEntriesEnabled ? (
+          <Card>
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mb-4">
+                <MdLock className="w-7 h-7 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h3 className="font-heading font-semibold text-gray-800 dark:text-gray-200 text-base mb-1">
+                Cash Entries Disabled
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                Cash entry submission has been disabled by the administrator.
+              </p>
+            </div>
+          </Card>
+        ) : !windowLoading && !isOpen ? (
           <Card>
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mb-4">

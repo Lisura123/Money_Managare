@@ -18,6 +18,10 @@ class DailyCardEntryController extends Controller
     {
         $user = $request->user();
 
+        if (! $user->isAdmin() && ! Setting::bankEntriesEnabled()) {
+            return response()->json(['message' => 'Bank entries are currently disabled by the administrator.'], 422);
+        }
+
         if (! $user->isAdmin() && ! Setting::isWithinEditWindow()) {
             return response()->json(['message' => 'Entry submission is only allowed during the edit window.'], 422);
         }
@@ -63,7 +67,8 @@ class DailyCardEntryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = DailyCardEntry::with('showroom', 'user', 'cardAccount', 'adjustments');
+        $query = DailyCardEntry::with('showroom', 'user', 'cardAccount', 'adjustments')
+            ->where('amount', '>', 0);
 
         if ($request->filled('showroom_id')) {
             $query->where('showroom_id', $request->showroom_id);

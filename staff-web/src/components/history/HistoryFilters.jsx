@@ -5,7 +5,7 @@ import { todayString, thisWeekRange, thisMonthRange } from '../../utils/formatte
 const TYPE_CHIPS = [
   { value: 'all', label: 'All' },
   { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
+  { value: 'card', label: 'Bank' },
 ]
 
 const ACCOUNT_CHIPS = [

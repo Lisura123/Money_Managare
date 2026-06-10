@@ -18,6 +18,9 @@ struct CardEntryView: View {
     private var showroomId: Int? { auth.user?.showroomId }
     private static let largeThreshold: Double = 1_000_000
 
+    /// Form is locked when the window is closed OR bank entries are disabled by admin.
+    private var formLocked: Bool { !editWindowVM.isOpen || !editWindowVM.bankEnabled }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -28,13 +31,27 @@ struct CardEntryView: View {
                     if success {
                         HStack {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
-                            Text("Card entry submitted").foregroundStyle(Color.mmSuccess)
+                            Text("Bank entry submitted").foregroundStyle(Color.mmSuccess)
                         }
                         .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
                     }
 
-                    // Edit window gate
-                    if !editWindowVM.isOpen {
+                    // Edit window / availability gate
+                    if !editWindowVM.bankEnabled {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.circle.fill").foregroundStyle(Color.mmError)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Bank entries are disabled")
+                                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.mmError)
+                                Text("Submission has been turned off by the administrator.")
+                                    .font(.system(size: 11)).foregroundStyle(Color.mmError.opacity(0.8))
+                            }
+                            Spacer()
+                        }
+                        .padding(14)
+                        .background(Color.mmError.opacity(0.1))
+                        .cornerRadius(12)
+                    } else if !editWindowVM.isOpen {
                         HStack(spacing: 10) {
                             Image(systemName: "lock.circle.fill").foregroundStyle(Color.mmError)
                             VStack(alignment: .leading, spacing: 2) {
@@ -69,16 +86,16 @@ struct CardEntryView: View {
                     .background(Color.mmCard)
                     .cornerRadius(14)
 
-                    // Form card
+                    // Form card — disabled when window is closed
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("Card Account", systemImage: "creditcard")
+                        Label("Bank Account", systemImage: "creditcard")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Color.mmPrimary)
 
                         if accountVM.isLoading {
                             ProgressView()
                         } else if accountVM.accounts.isEmpty {
-                            Text("No active card accounts for your showroom.")
+                            Text("No active bank accounts for your showroom.")
                                 .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
                         } else {
                             Picker(selection: $selectedAccountId) {
@@ -104,7 +121,7 @@ struct CardEntryView: View {
                         let todayEntries = vm.myHistory.filter { $0.entryDate == todayStr }
                         if !todayEntries.isEmpty {
                             Divider()
-                            Text("Today's Card Entries")
+                            Text("Today's Bank Entries")
                                 .font(.system(size: 12, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
                             ForEach(todayEntries) { entry in
                                 HStack {
@@ -133,18 +150,20 @@ struct CardEntryView: View {
                     .padding(16)
                     .background(Color.mmCard)
                     .cornerRadius(14)
+                    .disabled(formLocked)
+                    .opacity(formLocked ? 0.45 : 1)
 
-                    MMButton(title: "Submit Card Entry", isLoading: vm.isSubmitting) {
+                    MMButton(title: "Submit Bank Entry", isLoading: vm.isSubmitting) {
                         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
                         if amt >= Self.largeThreshold { showLargeAmountConfirm = true }
                         else { Task { await submit() } }
                     }
-                    .disabled(!editWindowVM.isOpen || selectedAccountId == nil)
+                    .disabled(formLocked || selectedAccountId == nil)
                 }
                 .padding(20)
             }
             .background(Color.mmBackground)
-            .navigationTitle("Card Entry")
+            .navigationTitle("Bank Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -171,7 +190,7 @@ struct CardEntryView: View {
 
     private func submit() async {
         guard let sId = showroomId else { error = "No showroom assigned."; return }
-        guard let accId = selectedAccountId, let acc = accountVM.accounts.first(where: { $0.id == accId }) else { error = "Select a card account."; return }
+        guard let accId = selectedAccountId, let acc = accountVM.accounts.first(where: { $0.id == accId }) else { error = "Select a bank account."; return }
         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
         let dateStr = dateString(entryDate)
         error = nil

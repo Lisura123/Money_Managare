@@ -150,6 +150,7 @@ struct ShowroomDetailView: View {
     @State private var showAddCard = false
     @State private var editCardTarget: CardAccount? = nil
     @State private var deleteCardAlert: CardAccount? = nil
+    @State private var showCashEdit = false
 
     private var showroomAccounts: [CardAccount] {
         cardVM.accounts.filter { $0.showroomId == showroom.id }
@@ -186,7 +187,8 @@ struct ShowroomDetailView: View {
                         title: "Main Cash",
                         amount: mainCashBalance,
                         icon: "banknote.fill",
-                        color: Color.mmPrimary
+                        color: Color.mmPrimary,
+                        onEdit: { showCashEdit = true }
                     )
                     BalanceTile(
                         title: "Total Cards",
@@ -199,7 +201,7 @@ struct ShowroomDetailView: View {
                 // Card accounts
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        SectionHeader(title: "Card Accounts")
+                        SectionHeader(title: "Bank Accounts")
                         Spacer()
                         Button {
                             showAddCard = true
@@ -212,7 +214,7 @@ struct ShowroomDetailView: View {
                     if cardVM.isLoading {
                         ProgressView()
                     } else if showroomAccounts.isEmpty {
-                        Text("No card accounts").font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
+                        Text("No bank accounts").font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
                     } else {
                         ForEach(showroomAccounts) { acc in
                             RowCard {
@@ -256,6 +258,12 @@ struct ShowroomDetailView: View {
         .background(Color.mmBackground)
         .navigationTitle(showroom.name)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCashEdit) {
+            ShowroomCashAdjustSheet(showroom: showroom, currentBalance: mainCashBalance) {
+                await cashVM.fetchAll()
+                NotificationCenter.default.post(name: .balancesDidChange, object: nil)
+            }
+        }
         .sheet(isPresented: $showAddCard) {
             CardAccountFormView(existing: nil, showrooms: [showroom]) {
                 await cardVM.fetchAll(showroomId: showroom.id)
@@ -297,6 +305,7 @@ private struct BalanceTile: View {
     let amount: Double
     let icon: String
     let color: Color
+    var onEdit: (() -> Void)? = nil
 
     var body: some View {
         RowCard {
@@ -308,6 +317,15 @@ private struct BalanceTile: View {
                     Text(title)
                         .font(.system(size: 12))
                         .foregroundStyle(Color.mmTextSecondary)
+                    Spacer()
+                    if let edit = onEdit {
+                        Button(action: edit) {
+                            Image(systemName: "pencil.circle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(color.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 Text(amount.currency)
                     .font(.system(size: 20, weight: .bold))
@@ -371,5 +389,143 @@ struct ShowroomFormView: View {
             await onSave()
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+}
+
+// MARK: - Main Cash Adjustment Sheet
+
+struct ShowroomCashAdjustSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let showroom: Showroom
+    let currentBalance: Double
+    let onSave: () async -> Void
+
+    @StateObject private var vm = CashEntryViewModel()
+    @State private var adjustmentAmount = ""
+    @State private var reason = ""
+    @State private var error: String?
+    @State private var success = false
+
+    private let reasonChips = ["Cash top-up", "Cash withdrawal", "Correction", "Transfer", "Other"]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let e = error {
+                        ErrorBanner(message: e) { error = nil }
+                    }
+                    if success {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
+                            Text("Balance updated").foregroundStyle(Color.mmSuccess)
+                        }
+                        .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
+                    }
+
+                    // Current balance
+                    RowCard {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Current Balance")
+                                    .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                                Text(currentBalance.currency)
+                                    .font(.system(size: 22, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                            }
+                            Spacer()
+                            Image(systemName: "banknote.fill")
+                                .font(.system(size: 28)).foregroundStyle(Color.mmPrimary.opacity(0.3))
+                        }
+                    }
+
+                    // Adjustment amount
+                    RowCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("Adjustment Amount", systemImage: "plusminus.circle")
+                                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.mmPrimary)
+                            Text("Use positive to add cash, negative to deduct (e.g. -500)")
+                                .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                            MMTextField(label: "Amount", text: $adjustmentAmount,
+                                        placeholder: "e.g. 500 or -200",
+                                        keyboardType: .numbersAndPunctuation,
+                                        autocapitalization: .never)
+                            if let amt = Double(adjustmentAmount), !adjustmentAmount.isEmpty {
+                                let newBal = currentBalance + amt
+                                HStack {
+                                    Text("New balance:")
+                                        .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                                    Text(newBal.currency)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(newBal >= 0 ? Color.mmSuccess : Color.mmError)
+                                }
+                            }
+                        }
+                    }
+
+                    // Reason chips
+                    RowCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("Reason", systemImage: "text.bubble")
+                                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.mmPrimary)
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(reasonChips, id: \.self) { chip in
+                                    Button { reason = chip } label: {
+                                        Text(chip)
+                                            .font(.system(size: 12, weight: reason == chip ? .semibold : .regular))
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal, 10).padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity)
+                                            .background(reason == chip ? Color.mmPrimary : Color.mmInputFill)
+                                            .foregroundStyle(reason == chip ? .white : Color.mmTextPrimary)
+                                            .cornerRadius(10)
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                                                reason == chip ? Color.clear : Color.mmDivider))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            if reason == "Other" || (!reasonChips.dropLast().contains(reason) && !reason.isEmpty) {
+                                MMTextField(label: "Custom reason", text: $reason, placeholder: "Describe reason…")
+                            }
+                        }
+                    }
+
+                    MMButton(title: "Apply Adjustment", isLoading: vm.isSubmitting) {
+                        Task { await submit() }
+                    }
+                    .disabled(adjustmentAmount.isEmpty || reason.isEmpty || vm.isSubmitting)
+                }
+                .padding(20)
+            }
+            .background(Color.mmBackground)
+            .navigationTitle("Edit Main Cash — \(showroom.name)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+    }
+
+    private func submit() async {
+        guard let amt = Double(adjustmentAmount), amt != 0 else {
+            error = "Enter a non-zero adjustment amount."
+            return
+        }
+        let r = reason.trimmingCharacters(in: .whitespaces)
+        guard !r.isEmpty else { error = "Select or enter a reason."; return }
+        error = nil
+        do {
+            try await vm.createAdjustment(
+                adjustedAmount: amt,
+                reason: r,
+                cashAccountType: "main",
+                showroomId: showroom.id
+            )
+            success = true
+            await onSave()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { dismiss() }
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }

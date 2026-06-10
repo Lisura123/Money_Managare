@@ -15,11 +15,14 @@ final class SelfTransactionViewModel: ObservableObject {
     private var page = 1
     private let api = APIService.shared
 
-    func fetchAll(refresh: Bool = false) async {
+    func fetchAll(date: String? = nil, from: String? = nil, to: String? = nil, refresh: Bool = false) async {
         if refresh { page = 1; transactions = []; hasMore = true }
         guard hasMore else { return }
         isLoading = true; error = nil
-        let q: [String: Any] = ["page": page]
+        var q: [String: Any] = ["page": page]
+        if let d = date { q["date"] = d }
+        if let f = from { q["from"] = f }
+        if let t = to   { q["to"]   = t }
         do {
             let resp: PaginatedResponse<SelfTransaction> = try await api.get("/self-transactions", query: q)
             let cur  = resp.meta?.currentPage ?? page

@@ -10,13 +10,21 @@ class ShowroomSeeder extends Seeder
     public function run(): void
     {
         $showrooms = [
-            ['name' => 'Downtown Showroom',  'location' => '123 Main Street, Downtown',    'is_active' => true],
-            ['name' => 'Northside Showroom', 'location' => '456 North Avenue, Northside',  'is_active' => true],
-            ['name' => 'Eastside Showroom',  'location' => '789 East Blvd, East District', 'is_active' => true],
+            'CAMERALK (PVT) LTD',
+            'SONY ASIA PASIFIC (PVT) LTD',
+            'KOSMISCH GLOBAL (PVT) LTD',
+            'CLK KANDY (PVT) LTD',
+            'CAMERA DOT LK (PVT) LTD',
+            'CLK PHOTOGRAPHY (PVT) LTD',
+            'NM CREATION',
+            'MAGNUS INTERNATIONAL (PVT) LTD',
         ];
 
-        foreach ($showrooms as $data) {
-            Showroom::create($data);
+        foreach ($showrooms as $name) {
+            Showroom::firstOrCreate(
+                ['name' => $name],
+                ['location' => '', 'is_active' => true],
+            );
         }
     }
 }

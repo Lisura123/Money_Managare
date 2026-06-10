@@ -7,9 +7,6 @@ struct TransactionsHubView: View {
                 NavigationLink(destination: SelfTransactionListView()) {
                     Label("Self Transfers", systemImage: "arrow.left.arrow.right.circle")
                 }
-                NavigationLink(destination: CashTransactionListView()) {
-                    Label("Cash Transfers", systemImage: "arrow.left.arrow.right.circle.fill")
-                }
             }
             .navigationTitle("Transfers")
         }
@@ -159,7 +156,7 @@ struct SelfTransactionFormView: View {
             switch self {
             case .mainCash:     return "Main Cash"
             case .showroomCash: return "Showroom Cash"
-            case .card:         return "Card"
+            case .card:         return "Bank"
             case .mano:         return "Mano"
             }
         }
@@ -170,7 +167,7 @@ struct SelfTransactionFormView: View {
             switch self {
             case .mainCash:     return "Main Cash"
             case .showroomCash: return "Showroom Cash"
-            case .card:         return "Card"
+            case .card:         return "Bank"
             case .mano:         return "Mano"
             case .other:        return "Others"
             }
@@ -200,9 +197,6 @@ struct SelfTransactionFormView: View {
     @StateObject private var cashVM       = ShowroomCashViewModel()
 
     // MARK: - Helpers
-    private var mainCashAccount: ExternalAccount? {
-        extVM.accounts.first { $0.cashAccountType == "main" }
-    }
     private var manoAccount: ExternalAccount? {
         extVM.accounts.first { $0.cashAccountType == "mano" }
     }
@@ -225,11 +219,22 @@ struct SelfTransactionFormView: View {
         guard let sid = toCashShowroomId else { return nil }
         return cashVM.showrooms.first { $0.showroomId == sid }
     }
+    /// The two flagship showrooms that belong under "Main Cash".
+    private func isMainShowroom(_ name: String) -> Bool {
+        let upper = name.uppercased()
+        return upper.contains("CAMERALK") || upper.contains("SONY")
+    }
+    private var mainCashShowrooms: [ShowroomCashBalance] {
+        cashVM.showrooms.filter { isMainShowroom($0.showroomName) }
+    }
+    private var otherCashShowrooms: [ShowroomCashBalance] {
+        cashVM.showrooms.filter { !isMainShowroom($0.showroomName) }
+    }
     private var fromBalance: Double? {
         switch fromType {
         case .card:         return fromCardAccount?.currentBalance
         case .mano:         return manoAccount?.balance
-        case .mainCash:     return mainCashAccount?.balance
+        case .mainCash:     return fromCashItem?.balance
         case .showroomCash: return fromCashItem?.balance
         case .none:         return nil
         }
@@ -238,7 +243,7 @@ struct SelfTransactionFormView: View {
         switch toType {
         case .card:         return toCardAccount?.currentBalance
         case .mano:         return manoAccount?.balance
-        case .mainCash:     return mainCashAccount?.balance
+        case .mainCash:     return toCashItem?.balance
         case .showroomCash: return toCashItem?.balance
         case .other, .none: return nil
         }
@@ -247,7 +252,7 @@ struct SelfTransactionFormView: View {
         switch fromType {
         case .card:         return fromCardAccount?.displayLabel ?? "—"
         case .mano:         return manoAccount?.name ?? "Mano"
-        case .mainCash:     return "Main Account"
+        case .mainCash:     return fromCashItem.map { "Cash (\($0.showroomName))" } ?? "Main Cash"
         case .showroomCash: return fromCashItem.map { "Cash (\($0.showroomName))" } ?? "Showroom Cash"
         case .none:         return "—"
         }
@@ -256,7 +261,7 @@ struct SelfTransactionFormView: View {
         switch toType {
         case .card:         return toCardAccount?.displayLabel ?? "—"
         case .mano:         return manoAccount?.name ?? "Mano"
-        case .mainCash:     return "Main Account"
+        case .mainCash:     return toCashItem.map { "Cash (\($0.showroomName))" } ?? "Main Cash"
         case .showroomCash: return toCashItem.map { "Cash (\($0.showroomName))" } ?? "Showroom Cash"
         case .other:        return "Others"
         case .none:         return "—"
@@ -267,9 +272,9 @@ struct SelfTransactionFormView: View {
     private var saveDisabled: Bool {
         vm.isSubmitting || fromType == nil || toType == nil || amount.isEmpty ||
         (fromType == .card && fromCardId == nil) ||
-        (fromType == .showroomCash && fromCashShowroomId == nil) ||
+        ((fromType == .showroomCash || fromType == .mainCash) && fromCashShowroomId == nil) ||
         (toType == .card && toCardId == nil) ||
-        (toType == .showroomCash && toCashShowroomId == nil) ||
+        ((toType == .showroomCash || toType == .mainCash) && toCashShowroomId == nil) ||
         (notesRequired && notes.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
@@ -399,8 +404,8 @@ struct SelfTransactionFormView: View {
         case .card:
             Picker("Showroom", selection: $fromShowroomId) {
                 Text("Select showroom…").tag(Optional<Int>.none)
-                ForEach(showroomVM.showrooms.filter { $0.isActive }) { s in
-                    Text(s.name).tag(Optional<Int>.some(s.id))
+                ForEach(showroomVM.showrooms.filter { $0.isActive }.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.id))
                 }
             }
             .onChange(of: fromShowroomId) { _ in fromCardId = nil }
@@ -425,19 +430,23 @@ struct SelfTransactionFormView: View {
                 Text("Loading…").foregroundStyle(Color.mmTextSecondary)
             }
         case .mainCash:
-            if let main = mainCashAccount {
-                LabeledContent("Total Current Balance") {
-                    Text(main.balance.currency)
-                        .fontWeight(.bold).foregroundStyle(Color.mmPrimary)
+            Picker("Showroom", selection: $fromCashShowroomId) {
+                Text("Select showroom…").tag(Optional<Int>.none)
+                ForEach(mainCashShowrooms.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.showroomName, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.showroomId))
                 }
-            } else {
-                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+            if let item = fromCashItem {
+                LabeledContent("Cash Balance") {
+                    Text(item.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
             }
         case .showroomCash:
             Picker("Showroom", selection: $fromCashShowroomId) {
                 Text("Select showroom…").tag(Optional<Int>.none)
-                ForEach(cashVM.showrooms) { s in
-                    Text(s.showroomName).tag(Optional<Int>.some(s.showroomId))
+                ForEach(otherCashShowrooms.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.showroomName, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.showroomId))
                 }
             }
             if let item = fromCashItem {
@@ -457,8 +466,8 @@ struct SelfTransactionFormView: View {
         case .card:
             Picker("Showroom", selection: $toShowroomId) {
                 Text("Select showroom…").tag(Optional<Int>.none)
-                ForEach(showroomVM.showrooms.filter { $0.isActive }) { s in
-                    Text(s.name).tag(Optional<Int>.some(s.id))
+                ForEach(showroomVM.showrooms.filter { $0.isActive }.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.id))
                 }
             }
             .onChange(of: toShowroomId) { _ in toCardId = nil }
@@ -483,19 +492,23 @@ struct SelfTransactionFormView: View {
                 Text("Loading…").foregroundStyle(Color.mmTextSecondary)
             }
         case .mainCash:
-            if let main = mainCashAccount {
-                LabeledContent("Total Current Balance") {
-                    Text(main.balance.currency)
-                        .fontWeight(.bold).foregroundStyle(Color.mmPrimary)
+            Picker("Showroom", selection: $toCashShowroomId) {
+                Text("Select showroom…").tag(Optional<Int>.none)
+                ForEach(mainCashShowrooms.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.showroomName, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.showroomId))
                 }
-            } else {
-                Text("Loading…").foregroundStyle(Color.mmTextSecondary)
+            }
+            if let item = toCashItem {
+                LabeledContent("Cash Balance") {
+                    Text(item.balance.currency)
+                        .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                }
             }
         case .showroomCash:
             Picker("Showroom", selection: $toCashShowroomId) {
                 Text("Select showroom…").tag(Optional<Int>.none)
-                ForEach(cashVM.showrooms) { s in
-                    Text(s.showroomName).tag(Optional<Int>.some(s.showroomId))
+                ForEach(otherCashShowrooms.prioritized()) { s in
+                    ShowroomOptionLabel(name: s.showroomName, isFlagship: s.isFlagship).tag(Optional<Int>.some(s.showroomId))
                 }
             }
             if let item = toCashItem {
@@ -517,10 +530,10 @@ struct SelfTransactionFormView: View {
         let notesVal = notes.trimmingCharacters(in: .whitespaces)
 
         // Build FROM params
-        let fromCardIdParam: Int?     = fromType == .card         ? fromCardId           : nil
-        let fromExtIdParam:  Int?     = fromType == .mano         ? manoAccount?.id      : nil
-        let fromAccTypeParam: String? = (fromType == .mainCash || fromType == .showroomCash) ? "main" : nil
-        let fromShowroomIdParam: Int? = fromType == .showroomCash ? fromCashShowroomId   : nil
+        let fromCardIdParam:     Int?    = fromType == .card         ? fromCardId           : nil
+        let fromExtIdParam:      Int?    = fromType == .mano         ? manoAccount?.id      : nil
+        let fromAccTypeParam:    String? = (fromType == .mainCash || fromType == .showroomCash) ? "main" : nil
+        let fromShowroomIdParam: Int?    = (fromType == .mainCash || fromType == .showroomCash) ? fromCashShowroomId : nil
 
         // Build TO params
         var toCardIdParam:    Int?     = nil
@@ -530,7 +543,7 @@ struct SelfTransactionFormView: View {
         switch toType {
         case .card:         toCardIdParam  = toCardId
         case .mano:         toExtIdParam   = manoAccount?.id
-        case .mainCash:     toAccTypeParam = "main"
+        case .mainCash:     toAccTypeParam = "main"; toShowroomIdParam = toCashShowroomId
         case .showroomCash: toAccTypeParam = "main"; toShowroomIdParam = toCashShowroomId
         case .other, .none: break
         }

@@ -28,6 +28,10 @@ class SelfTransactionResource extends JsonResource
                 : null
             ),
             'to_card_account'          => $this->whenLoaded('toCardAccount', fn () => new CardAccountResource($this->toCardAccount)),
+            'to_external_account'      => $this->whenLoaded('toExternalAccount', fn () => $this->toExternalAccount
+                ? ['id' => $this->toExternalAccount->id, 'name' => $this->toExternalAccount->name, 'cash_account_type' => $this->toExternalAccount->cash_account_type]
+                : null
+            ),
             'admin'                    => $this->whenLoaded('admin', fn () => new UserResource($this->admin)),
             'created_at'               => $this->created_at,
         ];

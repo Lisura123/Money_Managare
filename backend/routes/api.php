@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminCardAdjustmentController;
 use App\Http\Controllers\Api\AdminCashAdjustmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BalanceUpdateController;
 use App\Http\Controllers\Api\CardAccountController;
 use App\Http\Controllers\Api\CashTransactionController;
 use App\Http\Controllers\Api\DailyCardEntryController;
@@ -77,10 +78,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('admin')->group(function () {
         // Dashboard summary + balance diagnostics
         Route::get('/admin/dashboard-summary', [DashboardController::class, 'summary']);
+        Route::get('/admin/records-summary',   [DashboardController::class, 'recordsSummary']);
         Route::get('/admin/verify-balances',   [DashboardController::class, 'verifyBalances']);
         Route::post('/admin/fix-balances',     [DashboardController::class, 'fixBalances']);
 
+        // Balance updates log (manual Main Cash / Bank balance changes)
+        Route::get('/balance-updates', [BalanceUpdateController::class, 'index']);
+        Route::post('/balance-updates/bulk-delete', [BalanceUpdateController::class, 'bulkDestroy']);
+        Route::delete('/balance-updates/{balanceUpdate}', [BalanceUpdateController::class, 'destroy']);
+
         // Showrooms CRUD
+        Route::post('/showrooms/bulk-delete', [ShowroomController::class, 'bulkDestroy']);
         Route::apiResource('/showrooms', ShowroomController::class);
 
         // Card accounts per showroom
@@ -153,7 +161,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Settings
         Route::get('/settings', [SettingController::class, 'index']);
-        Route::put('/settings/{setting}', [SettingController::class, 'update']);
+        Route::put('/settings/{key}', [SettingController::class, 'update']);
 
         // Audit logs
         Route::get('/audit-logs', [AuditLogController::class, 'index']);

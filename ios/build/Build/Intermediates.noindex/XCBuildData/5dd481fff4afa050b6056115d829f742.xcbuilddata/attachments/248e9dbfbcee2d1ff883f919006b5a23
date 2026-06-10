@@ -1,0 +1,20 @@
+#!/bin/sh
+# === Permanent iCloud Drive codesign fix ===
+# Ensure build dir symlinks to ~/.cache/mm_build (outside iCloud Drive, survives reboots)
+BUILD_SYMLINK="$SRCROOT/../build"
+BUILD_TARGET="$HOME/.cache/mm_build"
+mkdir -p "$BUILD_TARGET"
+if [ ! -L "$BUILD_SYMLINK" ] || [ "$(readlink "$BUILD_SYMLINK")" != "$BUILD_TARGET" ]; then
+  rm -rf "$BUILD_SYMLINK"
+  ln -s "$BUILD_TARGET" "$BUILD_SYMLINK"
+fi
+# Pre-strip Flutter engine xattrs
+if [ -d "$FLUTTER_ROOT/bin/cache/artifacts/engine" ]; then
+  find "$FLUTTER_ROOT/bin/cache/artifacts/engine" \( -name "Flutter" -o -name "*.dylib" \) | xargs xattr -rc 2>/dev/null || true
+fi
+# Run Flutter build
+/bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" build
+# Post-strip: remove iCloud xattrs from ALL build artifacts
+xattr -rc "$SRCROOT" 2>/dev/null || true
+if [ -d "${BUILT_PRODUCTS_DIR}" ]; then xattr -rc "${BUILT_PRODUCTS_DIR}" 2>/dev/null || true; fi
+if [ -d "$PODS_ROOT" ]; then xattr -rc "$PODS_ROOT" 2>/dev/null || true; fi

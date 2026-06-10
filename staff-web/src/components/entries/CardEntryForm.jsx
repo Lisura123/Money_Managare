@@ -51,7 +51,7 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
           amount: amount,
           notes: values.notes || null,
         })
-        toast.success('Card entry submitted successfully!')
+        toast.success('Bank entry submitted successfully!')
         onSuccess?.()
       } catch (err) {
         const status = err.response?.status

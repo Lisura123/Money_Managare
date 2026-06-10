@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner'
 import { useFetch } from '../../hooks/useFetch'
 import { ENDPOINTS } from '../../utils/constants'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
+import { isFlagshipShowroom, showroomOptionLabel } from '../../utils/showroomPriority'
 import api from '../../config/api'
 
 const maskCard = (lastFour) => lastFour ? `••••${lastFour}` : '—'
@@ -42,7 +43,7 @@ function AddModal({ open, onClose, onSaved }) {
 
   const uniqueShowrooms = [...new Set(
     cardAccounts.map(c => c.showroom_name || c.showroomName || '').filter(Boolean)
-  )].sort()
+  )].sort().sort((a, b) => (isFlagshipShowroom(b) ? 1 : 0) - (isFlagshipShowroom(a) ? 1 : 0))
 
   const filteredAccounts = cardAccounts.filter(
     c => (c.showroom_name || c.showroomName) === selectedShowroom
@@ -108,7 +109,7 @@ function AddModal({ open, onClose, onSaved }) {
               >
                 <option value="">Select showroom</option>
                 {uniqueShowrooms.map(name => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>{showroomOptionLabel(name)}</option>
                 ))}
               </select>
             )}
@@ -117,7 +118,7 @@ function AddModal({ open, onClose, onSaved }) {
           {/* Card Account */}
           {selectedShowroom && (
             <div>
-              <label className="form-label">Card Account</label>
+              <label className="form-label">Bank Account</label>
               <select
                 className="form-input"
                 value={selectedAccountId}
@@ -265,8 +266,8 @@ export default function CardAdjustmentsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Card Adjustments"
-        subtitle="Add or deduct amounts from card accounts."
+        title="Bank Adjustments"
+        subtitle="Add or deduct amounts from bank accounts."
         action={
           <div className="flex items-center gap-2">
             <button onClick={refetch} className="btn-outline p-2" title="Refresh">

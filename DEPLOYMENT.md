@@ -180,6 +180,6 @@ cd "/Users/lisura/Desktop/Money Manager" && rsync -avz --exclude='vendor' --excl
 ```bash
 cd "/Users/lisura/Desktop/Money Manager/staff-web" && VITE_API_BASE_URL=https://money.cameralkstore.com/api npm run build && rsync -avz dist/ root@72.62.72.186:/var/www/money-staff/
 ```
-The admin account email - admin@admin.com, password - Admin@123 
+The admin account email - admin@admin.com, password - Test1234!
 
 personal access token (classic) - [TOKEN_REMOVED]

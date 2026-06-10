@@ -4,17 +4,21 @@ struct EntriesHubView: View {
     var body: some View {
         NavigationStack {
             List {
-                NavigationLink(destination: CashEntriesAdminView()) {
-                    Label("Cash Entries", systemImage: "banknote")
+                Section("Daily Entries") {
+                    NavigationLink(destination: CashEntriesAdminView()) {
+                        Label("Cash Entries", systemImage: "banknote")
+                    }
+                    NavigationLink(destination: CardEntriesAdminView()) {
+                        Label("Bank Entries", systemImage: "creditcard")
+                    }
                 }
-                NavigationLink(destination: CardEntriesAdminView()) {
-                    Label("Card Entries", systemImage: "creditcard")
-                }
-                NavigationLink(destination: CashAdjustmentsView()) {
-                    Label("Cash Adjustments", systemImage: "arrow.triangle.2.circlepath.circle")
-                }
-                NavigationLink(destination: CardAdjustmentsView()) {
-                    Label("Card Adjustments", systemImage: "arrow.triangle.2.circlepath.circle.fill")
+                Section("Adjustments") {
+                    NavigationLink(destination: CashAdjustmentsView()) {
+                        Label("Cash Adjustments", systemImage: "arrow.triangle.2.circlepath.circle")
+                    }
+                    NavigationLink(destination: CardAdjustmentsView()) {
+                        Label("Bank Adjustments", systemImage: "arrow.triangle.2.circlepath.circle.fill")
+                    }
                 }
             }
             .navigationTitle("Entries")
@@ -37,28 +41,8 @@ struct CashEntriesAdminView: View {
     @State private var bulkDeleteAlert = false
     @State private var showAddEntry = false
 
-    private var mainLiveBalance: Double {
-        extVM.accounts.first(where: { $0.cashAccountType == "main" })?.balance ?? 0
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            // Live balance banner
-            if !extVM.accounts.isEmpty {
-                HStack {
-                    Label("Main Account Balance", systemImage: "building.columns.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.mmPrimary)
-                    Spacer()
-                    Text(mainLiveBalance.currency)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(mainLiveBalance >= 0 ? Color.mmSuccess : Color.mmError)
-                }
-                .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(Color.mmCard)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.mmDivider), alignment: .bottom)
-            }
-
             Group {
                 if vm.isLoading && vm.entries.isEmpty {
                     ProgressView().frame(maxWidth: .infinity).padding(40)
@@ -91,7 +75,7 @@ struct CashEntriesAdminView: View {
                                     }
                                 }
                                 .swipeActions(edge: .trailing) {
-                                    if !e.isLocked && !isSelecting {
+                                    if !isSelecting {
                                         Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
                                     }
                                 }
@@ -135,10 +119,12 @@ struct CashEntriesAdminView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("All") { filterShowroomId = nil; Task { await vm.fetchEntries(showroomId: nil, refresh: true) } }
-                        ForEach(showroomVM.showrooms) { s in
-                            Button(s.name) {
+                        ForEach(showroomVM.showrooms.prioritized()) { s in
+                            Button {
                                 filterShowroomId = s.id
                                 Task { await vm.fetchEntries(showroomId: s.id, refresh: true) }
+                            } label: {
+                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship)
                             }
                         }
                     } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
@@ -146,6 +132,9 @@ struct CashEntriesAdminView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         if let item = selectedItem {
+                            Button { editTarget = item } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
                             Button(role: .destructive) { deleteAlert = item } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -203,25 +192,41 @@ struct AdminCashEntryRow: View {
 
     var body: some View {
         RowCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.entryDate.displayDate).font(.system(size: 14, weight: .semibold))
-                    Text(entry.userName ?? "Unknown").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    Text(entry.showroomName ?? "—").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    Text(entry.cashAccountLabel).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(entry.cashAmount.currency)
-                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
-                    if entry.isLocked {
-                        Label("Locked", systemImage: "lock.fill").font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(entry.entryDate.displayDate).font(.system(size: 14, weight: .semibold))
+                            if let t = entry.createdAt?.displayTime, !t.isEmpty {
+                                Text("• \(t)").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            }
+                        }
+                        Text(entry.userName ?? "Unknown").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        Text(entry.showroomName ?? "—").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        Text(entry.cashAccountLabel).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                     }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(entry.cashAmount.currency)
+                            .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                        if entry.isLocked {
+                            Label("Locked", systemImage: "lock.fill").font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+                        }
+                    }
+                }
+                if let n = entry.notes, !n.isEmpty {
+                    Label(n, systemImage: "text.bubble")
+                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                 }
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 4)
     }
+}
+
+enum EntryAmountMode: String, CaseIterable {
+    case add = "Add"
+    case deduct = "Deduct"
 }
 
 struct EditCashEntryView: View {
@@ -230,21 +235,45 @@ struct EditCashEntryView: View {
     let onSave: () async -> Void
 
     @StateObject private var vm = CashEntryViewModel()
-    @State private var amount: String
+    @State private var mode: EntryAmountMode = .add
+    @State private var delta: String = ""
     @State private var notes: String
     @State private var error: String?
 
     init(entry: DailyCashEntry, onSave: @escaping () async -> Void) {
         self.entry = entry; self.onSave = onSave
-        _amount = State(initialValue: String(entry.cashAmount))
         _notes  = State(initialValue: entry.notes ?? "")
+    }
+
+    private var deltaValue: Double { Double(delta) ?? 0 }
+
+    private var newAmount: Double {
+        mode == .add ? entry.cashAmount + deltaValue : entry.cashAmount - deltaValue
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Edit Cash Entry") {
-                    MMTextField(label: "Amount", text: $amount, keyboardType: .decimalPad)
+                Section("Current Amount") {
+                    LabeledContent("Existing") {
+                        Text(entry.cashAmount.currency)
+                            .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                    }
+                }
+                Section("Adjust Amount") {
+                    Picker("Operation", selection: $mode) {
+                        ForEach(EntryAmountMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    MMTextField(label: mode == .add ? "Amount to add" : "Amount to deduct",
+                                text: $delta, keyboardType: .decimalPad)
+                    LabeledContent("New Amount") {
+                        Text(newAmount.currency)
+                            .fontWeight(.bold)
+                            .foregroundStyle(newAmount >= 0.01 ? Color.mmSuccess : Color.mmError)
+                    }
+                }
+                Section("Notes") {
                     MMTextField(label: "Notes", text: $notes)
                 }
                 if let e = error {
@@ -256,16 +285,18 @@ struct EditCashEntryView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(vm.isSubmitting || amount.isEmpty)
+                        .disabled(vm.isSubmitting || delta.isEmpty)
                 }
             }
         }
     }
 
     private func save() async {
-        guard let amt = Double(amount) else { error = "Invalid amount"; return }
+        guard let d = Double(delta), d > 0 else { error = "Enter a valid amount"; return }
+        let final = mode == .add ? entry.cashAmount + d : entry.cashAmount - d
+        guard final >= 0.01 else { error = "Resulting amount must be at least 0.01"; return }
         do {
-            try await vm.update(entry.id, cashAmount: amt, notes: notes.isEmpty ? nil : notes)
+            try await vm.update(entry.id, cashAmount: final, notes: notes.isEmpty ? nil : notes)
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -287,7 +318,9 @@ struct CardEntriesAdminView: View {
     @State private var showAddEntry = false
 
     private var filteredShowroomBalance: Double {
-        accountVM.accounts.filter { $0.isActive }.reduce(0) { $0 + $1.currentBalance }
+        accountVM.accounts
+            .filter { $0.isActive && (filterShowroomId == nil || $0.showroomId == filterShowroomId) }
+            .reduce(0) { $0 + $1.currentBalance }
     }
 
     private var selectedShowroomName: String? {
@@ -299,7 +332,7 @@ struct CardEntriesAdminView: View {
             // Showroom card balance banner
             HStack {
                 if let name = selectedShowroomName {
-                    Label("\(name) — Card Balance", systemImage: "creditcard.fill")
+                    Label("\(name) — Bank Balance", systemImage: "creditcard.fill")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color(hex: "6366F1"))
                     Spacer()
@@ -324,7 +357,7 @@ struct CardEntriesAdminView: View {
                 if vm.isLoading && vm.entries.isEmpty {
                     ProgressView().frame(maxWidth: .infinity).padding(40)
                 } else if vm.entries.isEmpty {
-                    EmptyStateView(icon: "creditcard", message: "No card entries")
+                    EmptyStateView(icon: "creditcard", message: "No bank entries")
                 } else {
                     List {
                         ForEach(vm.entries) { e in
@@ -352,7 +385,7 @@ struct CardEntriesAdminView: View {
                                     }
                                 }
                                 .swipeActions(edge: .trailing) {
-                                    if !e.isLocked && !isSelecting {
+                                    if !isSelecting {
                                         Button("Edit") { editTarget = e }.tint(Color.mmPrimary)
                                     }
                                 }
@@ -372,7 +405,7 @@ struct CardEntriesAdminView: View {
             }
         }
         .background(Color.mmBackground)
-        .navigationTitle("Card Entries").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Bank Entries").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
@@ -398,13 +431,15 @@ struct CardEntriesAdminView: View {
                             filterShowroomId = nil
                             Task { await vm.fetchEntries(showroomId: nil, refresh: true) }
                         }
-                        ForEach(showroomVM.showrooms) { s in
-                            Button(s.name) {
+                        ForEach(showroomVM.showrooms.prioritized()) { s in
+                            Button {
                                 filterShowroomId = s.id
                                 Task {
                                     await vm.fetchEntries(showroomId: s.id, refresh: true)
                                     await accountVM.fetchAll(showroomId: s.id)
                                 }
+                            } label: {
+                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship)
                             }
                         }
                     } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
@@ -412,6 +447,9 @@ struct CardEntriesAdminView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         if let item = selectedItem {
+                            Button { editTarget = item } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
                             Button(role: .destructive) { deleteAlert = item } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -468,19 +506,31 @@ struct AdminCardEntryRow: View {
 
     var body: some View {
         RowCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.entryDate.displayDate).font(.system(size: 14, weight: .semibold))
-                    Text(entry.userName ?? "Unknown").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    Text(entry.displayCard).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(entry.amount.currency)
-                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
-                    if entry.isLocked {
-                        Label("Locked", systemImage: "lock.fill").font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(entry.entryDate.displayDate).font(.system(size: 14, weight: .semibold))
+                            if let t = entry.createdAt?.displayTime, !t.isEmpty {
+                                Text("• \(t)").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            }
+                        }
+                        Text(entry.userName ?? "Unknown").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        Text(entry.showroomName ?? "—").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        Text(entry.displayCard).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                     }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(entry.amount.currency)
+                            .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                        if entry.isLocked {
+                            Label("Locked", systemImage: "lock.fill").font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+                        }
+                    }
+                }
+                if let n = entry.notes, !n.isEmpty {
+                    Label(n, systemImage: "text.bubble")
+                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                 }
             }
         }
@@ -494,21 +544,45 @@ struct EditCardEntryView: View {
     let onSave: () async -> Void
 
     @StateObject private var vm = CardEntryViewModel()
-    @State private var amount: String
+    @State private var mode: EntryAmountMode = .add
+    @State private var delta: String = ""
     @State private var notes: String
     @State private var error: String?
 
     init(entry: DailyCardEntry, onSave: @escaping () async -> Void) {
         self.entry = entry; self.onSave = onSave
-        _amount = State(initialValue: String(entry.amount))
         _notes  = State(initialValue: entry.notes ?? "")
+    }
+
+    private var deltaValue: Double { Double(delta) ?? 0 }
+
+    private var newAmount: Double {
+        mode == .add ? entry.amount + deltaValue : entry.amount - deltaValue
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Edit Card Entry") {
-                    MMTextField(label: "Amount", text: $amount, keyboardType: .decimalPad)
+                Section("Current Amount") {
+                    LabeledContent("Existing") {
+                        Text(entry.amount.currency)
+                            .fontWeight(.semibold).foregroundStyle(Color.mmPrimary)
+                    }
+                }
+                Section("Adjust Amount") {
+                    Picker("Operation", selection: $mode) {
+                        ForEach(EntryAmountMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    MMTextField(label: mode == .add ? "Amount to add" : "Amount to deduct",
+                                text: $delta, keyboardType: .decimalPad)
+                    LabeledContent("New Amount") {
+                        Text(newAmount.currency)
+                            .fontWeight(.bold)
+                            .foregroundStyle(newAmount >= 0.01 ? Color.mmSuccess : Color.mmError)
+                    }
+                }
+                Section("Notes") {
                     MMTextField(label: "Notes", text: $notes)
                 }
                 if let e = error {
@@ -520,16 +594,18 @@ struct EditCardEntryView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(vm.isSubmitting || amount.isEmpty)
+                        .disabled(vm.isSubmitting || delta.isEmpty)
                 }
             }
         }
     }
 
     private func save() async {
-        guard let amt = Double(amount) else { error = "Invalid amount"; return }
+        guard let d = Double(delta), d > 0 else { error = "Enter a valid amount"; return }
+        let final = mode == .add ? entry.amount + d : entry.amount - d
+        guard final >= 0.01 else { error = "Resulting amount must be at least 0.01"; return }
         do {
-            try await vm.update(entry.id, amount: amt, notes: notes.isEmpty ? nil : notes)
+            try await vm.update(entry.id, amount: final, notes: notes.isEmpty ? nil : notes)
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -659,8 +735,13 @@ struct CashAdjRow: View {
                     if let r = adj.reason, !r.isEmpty {
                         Text(r).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
                     }
-                    Text((adj.createdAt ?? "").displayDateTime)
-                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    HStack(spacing: 6) {
+                        if let a = adj.adminName, !a.isEmpty {
+                            Label(a, systemImage: "person.fill").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                        Text((adj.createdAt ?? "").displayDateTime)
+                            .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    }
                 }
                 Spacer()
                 Text(adj.adjustedAmount >= 0
@@ -679,14 +760,21 @@ struct CashAdjustmentFormView: View {
     let onSave: () async -> Void
 
     @StateObject private var vm = CashEntryViewModel()
+    @StateObject private var showroomCashVM = ShowroomCashViewModel()
     @State private var accountType = "main"
+    @State private var selectedShowroomId: Int? = nil
     @State private var sign = "add"
     @State private var amount = ""
     @State private var reason = ""
     @State private var error: String?
 
     private var currentBalance: Double {
-        accountType == "mano" ? vm.manoCashBalance : vm.mainCashBalance
+        if accountType == "mano" { return vm.manoCashBalance }
+        if let sid = selectedShowroomId,
+           let s = showroomCashVM.showrooms.first(where: { $0.showroomId == sid }) {
+            return s.balance
+        }
+        return vm.mainCashBalance
     }
 
     private var signedAmount: Double {
@@ -709,8 +797,23 @@ struct CashAdjustmentFormView: View {
                         Task { await vm.fetchCashBalances() }
                     }
 
+                    if accountType == "main" {
+                        if showroomCashVM.isLoading && showroomCashVM.showrooms.isEmpty {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else {
+                            Picker("Showroom", selection: $selectedShowroomId) {
+                                ForEach(showroomCashVM.showrooms.prioritized()) { s in
+                                    ShowroomOptionLabel(name: s.showroomName, isFlagship: s.isFlagship).tag(Optional(s.showroomId))
+                                }
+                            }
+                        }
+                    }
+
                     LabeledContent("Current Balance") {
-                        if vm.mainCashBalance == 0 && vm.manoCashBalance == 0 && vm.isLoading {
+                        let isLoadingBalance = accountType == "main"
+                            ? (showroomCashVM.isLoading || selectedShowroomId == nil)
+                            : vm.manoCashBalance == 0
+                        if isLoadingBalance {
                             ProgressView().scaleEffect(0.7)
                         } else {
                             Text(currentBalance.currency)
@@ -752,18 +855,28 @@ struct CashAdjustmentFormView: View {
                         .disabled(vm.isSubmitting || amount.isEmpty || reason.isEmpty)
                 }
             }
-            .task { await vm.fetchCashBalances() }
+            .task {
+                // Run both concurrently; set selectedShowroomId as soon as showrooms load
+                async let balanceTask: () = vm.fetchCashBalances()
+                await showroomCashVM.fetchAll()
+                if selectedShowroomId == nil {
+                    selectedShowroomId = showroomCashVM.showrooms.first?.showroomId
+                }
+                await balanceTask
+            }
         }
     }
 
     private func save() async {
         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount"; return }
         guard !reason.isEmpty else { error = "Reason is required"; return }
+        let showroomId = accountType == "main" ? selectedShowroomId : nil
         do {
             try await vm.createAdjustment(
                 adjustedAmount: signedAmount,
                 reason: reason,
-                cashAccountType: accountType
+                cashAccountType: accountType,
+                showroomId: showroomId
             )
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }
@@ -820,7 +933,7 @@ struct CardAdjustmentsView: View {
             }
         }
         .background(Color.mmBackground)
-        .navigationTitle("Card Adjustments").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Bank Adjustments").navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isSelecting {
                 ToolbarItem(placement: .cancellationAction) {
@@ -891,7 +1004,12 @@ struct CardAdjRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(adj.accountLabel).font(.system(size: 14, weight: .semibold))
                     Text(adj.reason ?? "").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    Text((adj.createdAt ?? "").displayDateTime).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    HStack(spacing: 6) {
+                        if let a = adj.adminName, !a.isEmpty {
+                            Label(a, systemImage: "person.fill").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                        Text((adj.createdAt ?? "").displayDateTime).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    }
                 }
                 Spacer()
                 Text((adj.adjustedAmount >= 0 ? "+" : "") + adj.adjustedAmount.currency)
@@ -956,7 +1074,7 @@ struct CardAdjustmentFormView: View {
                 }
 
                 if !selectedShowroom.isEmpty {
-                    Section("Card Account") {
+                    Section("Bank Account") {
                         Picker("Account", selection: $selectedAccountId) {
                             Text("Select Account").tag(nil as Int?)
                             ForEach(filteredAccounts) { acc in
@@ -998,7 +1116,7 @@ struct CardAdjustmentFormView: View {
                     Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) }
                 }
             }
-            .navigationTitle("New Card Adjustment").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("New Bank Adjustment").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -1011,7 +1129,7 @@ struct CardAdjustmentFormView: View {
     }
 
     private func save() async {
-        guard let id = selectedAccountId else { error = "Select a card account"; return }
+        guard let id = selectedAccountId else { error = "Select a bank account"; return }
         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount"; return }
         guard !reason.isEmpty else { error = "Reason is required"; return }
         do {
@@ -1060,7 +1178,9 @@ struct AdminAddCashEntryView: View {
                             .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
                         Picker("Showroom", selection: $selectedShowroomId) {
                             Text("Select showroom…").tag(Optional<Int>.none)
-                            ForEach(showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                            ForEach(showrooms.prioritized()) { s in
+                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
+                            }
                         }
                         .pickerStyle(.menu)
                         .padding(12).background(Color.mmInputFill).cornerRadius(10)
@@ -1183,7 +1303,7 @@ struct AdminAddCardEntryView: View {
                     if success {
                         HStack {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.mmSuccess)
-                            Text("Card entry submitted").foregroundStyle(Color.mmSuccess)
+                            Text("Bank entry submitted").foregroundStyle(Color.mmSuccess)
                         }
                         .padding(12).background(Color.mmSuccess.opacity(0.1)).cornerRadius(10)
                     }
@@ -1194,7 +1314,9 @@ struct AdminAddCardEntryView: View {
                             .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
                         Picker("Showroom", selection: $selectedShowroomId) {
                             Text("Select showroom…").tag(Optional<Int>.none)
-                            ForEach(showrooms) { s in Text(s.name).tag(Optional(s.id)) }
+                            ForEach(showrooms.prioritized()) { s in
+                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
+                            }
                         }
                         .pickerStyle(.menu)
                         .padding(12).background(Color.mmInputFill).cornerRadius(10)
@@ -1220,7 +1342,7 @@ struct AdminAddCardEntryView: View {
 
                     // Card account + amount
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("Card Account", systemImage: "creditcard")
+                        Label("Bank Account", systemImage: "creditcard")
                             .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.mmPrimary)
 
                         if accountVM.isLoading {
@@ -1229,7 +1351,7 @@ struct AdminAddCardEntryView: View {
                             Text("Select a showroom first.")
                                 .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
                         } else if accountVM.accounts.isEmpty {
-                            Text("No active card accounts for this showroom.")
+                            Text("No active bank accounts for this showroom.")
                                 .font(.system(size: 13)).foregroundStyle(Color.mmTextSecondary)
                         } else {
                             Picker(selection: $selectedAccountId) {
@@ -1249,7 +1371,7 @@ struct AdminAddCardEntryView: View {
                     }
                     .padding(16).background(Color.mmCard).cornerRadius(14)
 
-                    MMButton(title: "Submit Card Entry", isLoading: vm.isSubmitting) {
+                    MMButton(title: "Submit Bank Entry", isLoading: vm.isSubmitting) {
                         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
                         if amt >= Self.largeThreshold { showLargeAmountConfirm = true }
                         else { Task { await submit() } }
@@ -1259,7 +1381,7 @@ struct AdminAddCardEntryView: View {
                 .padding(20)
             }
             .background(Color.mmBackground)
-            .navigationTitle("Add Card Entry")
+            .navigationTitle("Add Bank Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
@@ -1273,7 +1395,7 @@ struct AdminAddCardEntryView: View {
 
     private func submit() async {
         guard let sId = selectedShowroomId else { error = "Select a showroom."; return }
-        guard let accId = selectedAccountId else { error = "Select a card account."; return }
+        guard let accId = selectedAccountId else { error = "Select a bank account."; return }
         guard let amt = Double(amount), amt > 0 else { error = "Enter a valid amount."; return }
         let dateStr: String = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: entryDate) }()
         error = nil

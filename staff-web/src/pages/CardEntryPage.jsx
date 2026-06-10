@@ -39,18 +39,32 @@ export default function CardEntryPage() {
   )
   const todayEntries = todayHistory?.data || []
 
-  const { isOpen, windowStart, windowEnd, loading: windowLoading } = useEditWindow()
+  const { isOpen, windowStart, windowEnd, bankEntriesEnabled, loading: windowLoading } = useEditWindow()
 
   return (
     <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-6 animate-fade-in">
       {/* Left column: form */}
       <div className="lg:col-span-3">
         <PageHeader
-          title="New Card Entry"
+          title="New Bank Entry"
           subtitle="Submit a card transaction for your showroom."
         />
 
-        {!windowLoading && !isOpen ? (
+        {!windowLoading && !bankEntriesEnabled ? (
+          <Card>
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mb-4">
+                <MdLock className="w-7 h-7 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h3 className="font-heading font-semibold text-gray-800 dark:text-gray-200 text-base mb-1">
+                Bank Entries Disabled
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                Bank entry submission has been disabled by the administrator.
+              </p>
+            </div>
+          </Card>
+        ) : !windowLoading && !isOpen ? (
           <Card>
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mb-4">
@@ -86,7 +100,7 @@ export default function CardEntryPage() {
       {/* Right column: today's card entries */}
       <div className="lg:col-span-2">
         <div className="font-heading font-semibold text-gray-700 dark:text-gray-300 text-sm uppercase tracking-wide mb-3">
-          Today's Card Entries
+          Today's Bank Entries
         </div>
 
         {todayLoading ? (
@@ -96,7 +110,7 @@ export default function CardEntryPage() {
         ) : todayEntries.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-              No card entries submitted yet today.
+              No bank entries submitted yet today.
             </p>
           </Card>
         ) : (

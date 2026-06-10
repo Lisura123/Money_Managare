@@ -59,14 +59,14 @@ function TodayStatusCard({ status }) {
       {(status?.card?.count || 0) > 0 ? (
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Card Entries ({status.card.count})
+            Bank Entries ({status.card.count})
           </p>
           <p className="text-sm font-bold text-navy dark:text-white">
             {formatCurrency(status.card.total)}
           </p>
         </div>
       ) : (
-        <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">No card entries today</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">No bank entries today</p>
       )}
     </Card>
   )
@@ -156,7 +156,7 @@ export default function DashboardPage() {
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Quick Entry</p>
         <div className="grid grid-cols-2 gap-3">
           <ActionButton icon={MdWallet} label="Cash Entry" accent="text-teal" to="/cash-entry/main" />
-          <ActionButton icon={MdCreditCard} label="Card Entry" accent="text-navy dark:text-white" to="/card-entry" />
+          <ActionButton icon={MdCreditCard} label="Bank Entry" accent="text-navy dark:text-white" to="/card-entry" />
         </div>
       </div>
     </div>

@@ -80,4 +80,22 @@ extension String {
         }
         return self
     }
+
+    /// ISO8601 or "yyyy-MM-dd HH:mm:ss" → "02:45 PM"
+    var displayTime: String {
+        let out = DateFormatter()
+        out.dateFormat = "h:mm a"
+
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = iso.date(from: self) { return out.string(from: d) }
+        iso.formatOptions = [.withInternetDateTime]
+        if let d = iso.date(from: self) { return out.string(from: d) }
+
+        let mysql = DateFormatter()
+        mysql.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        if let d = mysql.date(from: self) { return out.string(from: d) }
+
+        return ""
+    }
 }

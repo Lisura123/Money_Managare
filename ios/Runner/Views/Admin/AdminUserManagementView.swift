@@ -393,8 +393,8 @@ struct AdminUserFormView: View {
                         if selectedRole == "staff" {
                             Picker("Showroom", selection: $selectedShowroomId) {
                                 Text("Select Showroom").tag(Optional<Int>.none)
-                                ForEach(showroomVM.showrooms) { s in
-                                    Text(s.name).tag(Optional(s.id))
+                                ForEach(showroomVM.showrooms.prioritized()) { s in
+                                    ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
                                 }
                             }
                         }

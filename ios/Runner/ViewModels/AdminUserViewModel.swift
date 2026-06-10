@@ -20,8 +20,21 @@ final class AdminUserViewModel: ObservableObject {
     func create(name: String, email: String, password: String, isActive: Bool) async throws {
         isSubmitting = true; defer { isSubmitting = false }
         let body: [String: Any] = ["name": name, "email": email, "password": password, "is_active": isActive]
-        let new: User = try await api.post("/admins", body: body)
-        admins.append(new)
+        // Accept both `{ "data": User }` and a flat `User` response shape.
+        struct CreateResponse: Decodable {
+            let user: User
+            private enum CodingKeys: String, CodingKey { case data }
+            init(from decoder: Decoder) throws {
+                if let container = try? decoder.container(keyedBy: CodingKeys.self),
+                   let wrapped = try? container.decode(User.self, forKey: .data) {
+                    user = wrapped
+                } else {
+                    user = try User(from: decoder)
+                }
+            }
+        }
+        let resp: CreateResponse = try await api.post("/admins", body: body)
+        admins.append(resp.user)
     }
 
     func update(_ id: Int, name: String, email: String, isActive: Bool, password: String?) async throws {

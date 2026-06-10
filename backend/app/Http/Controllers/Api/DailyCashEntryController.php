@@ -17,6 +17,10 @@ class DailyCashEntryController extends Controller
     {
         $user = $request->user();
 
+        if (! $user->isAdmin() && ! Setting::cashEntriesEnabled()) {
+            return response()->json(['message' => 'Cash entries are currently disabled by the administrator.'], 422);
+        }
+
         if (! $user->isAdmin() && ! Setting::isWithinEditWindow()) {
             return response()->json(['message' => 'Entry submission is only allowed during the edit window.'], 422);
         }
@@ -50,7 +54,10 @@ class DailyCashEntryController extends Controller
     }
     public function index(Request $request): JsonResponse
     {
-        $query = DailyCashEntry::with('showroom', 'user', 'adjustments');
+        $query = DailyCashEntry::with('showroom', 'user', 'adjustments')
+            // Exclude zero-amount carrier entries created solely to anchor a Main Cash
+            // adjustment. The adjustment itself is shown under Records → Cash Adjustments.
+            ->where('cash_amount', '>', 0);
 
         if ($request->filled('showroom_id')) {
             $query->where('showroom_id', $request->showroom_id);

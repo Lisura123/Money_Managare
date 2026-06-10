@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner'
 import StatusBadge from '../../components/common/StatusBadge'
 import { useFetch } from '../../hooks/useFetch'
 import { ENDPOINTS } from '../../utils/constants'
+import { prioritizeShowrooms, showroomOptionLabel } from '../../utils/showroomPriority'
 import api from '../../config/api'
 
 // ─── Staff Modal ──────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ function StaffModal({ open, onClose, initial, showrooms, onSaved }) {
             <label className="form-label">Showroom</label>
             <select className="form-input" value={showroomId} onChange={e => setShowroomId(e.target.value)}>
               <option value="">— None —</option>
-              {showrooms.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {prioritizeShowrooms(showrooms).map(s => <option key={s.id} value={s.id}>{showroomOptionLabel(s.name)}</option>)}
             </select>
           </div>
           <div className="flex gap-3 pt-2">

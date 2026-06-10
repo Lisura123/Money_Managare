@@ -20,5 +20,17 @@ class SettingsSeeder extends Seeder
             'value'       => '23:59',
             'description' => 'End time (HH:MM) of the daily window during which staff can edit entries',
         ]);
+
+        Setting::create([
+            'key'         => 'cash_entries_enabled',
+            'value'       => '1',
+            'description' => 'Whether staff are allowed to submit cash entries (1 = enabled, 0 = disabled)',
+        ]);
+
+        Setting::create([
+            'key'         => 'bank_entries_enabled',
+            'value'       => '1',
+            'description' => 'Whether staff are allowed to submit bank entries (1 = enabled, 0 = disabled)',
+        ]);
     }
 }

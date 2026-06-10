@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CardAccountRequest;
 use App\Http\Resources\CardAccountResource;
+use App\Models\BalanceUpdate;
 use App\Models\CardAccount;
 use App\Models\Showroom;
 use App\Observers\CardAccountObserver;
@@ -34,7 +35,9 @@ class CardAccountController extends Controller
     public function update(CardAccountRequest $request, Showroom $showroom, CardAccount $cardAccount): JsonResponse
     {
         abort_if($cardAccount->showroom_id !== $showroom->id, 404);
+        $previousBalance = (float) $cardAccount->current_balance;
         $cardAccount->update($request->validated());
+        $this->logBalanceChange($request, $cardAccount, $previousBalance);
         return response()->json(new CardAccountResource($cardAccount->load('showroom')));
     }
 
@@ -91,7 +94,9 @@ class CardAccountController extends Controller
             'current_balance' => ['sometimes', 'numeric', 'min:0'],
             'is_active'       => ['sometimes', 'boolean'],
         ]);
+        $previousBalance = (float) $cardAccount->current_balance;
         $cardAccount->update($validated);
+        $this->logBalanceChange($request, $cardAccount, $previousBalance);
         return response()->json(new CardAccountResource($cardAccount->load('showroom')));
     }
 
@@ -100,5 +105,29 @@ class CardAccountController extends Controller
     {
         $cardAccount->delete();
         return response()->json(['message' => 'Card account deleted.']);
+    }
+
+    /**
+     * Record a manual bank balance change in the balance_updates log so it
+     * appears in the Records → Balance Updates section.
+     */
+    private function logBalanceChange(Request $request, CardAccount $cardAccount, float $previousBalance): void
+    {
+        $newBalance = (float) $cardAccount->fresh()->current_balance;
+        if (abs($newBalance - $previousBalance) < 0.001) {
+            return;
+        }
+
+        BalanceUpdate::create([
+            'showroom_id'     => $cardAccount->showroom_id,
+            'account_type'    => 'bank',
+            'card_account_id' => $cardAccount->id,
+            'account_label'   => trim(($cardAccount->bank_name ?? 'Bank') . ' •••• ' . ($cardAccount->last_four ?? '')),
+            'previous_amount' => $previousBalance,
+            'new_amount'      => $newBalance,
+            'change_amount'   => $newBalance - $previousBalance,
+            'reason'          => $request->input('reason'),
+            'user_id'         => $request->user()->id,
+        ]);
     }
 }

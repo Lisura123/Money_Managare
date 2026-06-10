@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminCashAdjustmentRequest;
 use App\Http\Resources\AdminCashAdjustmentResource;
 use App\Models\AdminCashAdjustment;
+use App\Models\BalanceUpdate;
 use App\Models\DailyCashEntry;
+use App\Models\SelfTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminCashAdjustmentController extends Controller
 {
@@ -41,6 +44,16 @@ class AdminCashAdjustmentController extends Controller
         if ($request->filled('showroom_id')) {
             $query->whereHas('dailyCashEntry', fn ($q) =>
                 $q->where('showroom_id', $request->showroom_id));
+        }
+
+        if ($request->filled('date')) {
+            $query->whereHas('dailyCashEntry', fn ($q) =>
+                $q->whereDate('entry_date', $request->date));
+        }
+
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereHas('dailyCashEntry', fn ($q) =>
+                $q->whereBetween('entry_date', [$request->from, $request->to]));
         }
 
         $adjustments = $query->paginate(20);
@@ -77,7 +90,48 @@ class AdminCashAdjustmentController extends Controller
             'reason'              => $request->reason,
         ]);
 
+        // Record the change in the Balance Updates log (main cash only).
+        if ($cashAccountType === 'main') {
+            $previous = $this->mainCashBalance($showroomId) - (float) $request->adjusted_amount;
+            $new      = $previous + (float) $request->adjusted_amount;
+            BalanceUpdate::create([
+                'showroom_id'     => $showroomId,
+                'account_type'    => 'main_cash',
+                'card_account_id' => null,
+                'account_label'   => 'Main Cash',
+                'previous_amount' => round($previous, 2),
+                'new_amount'      => round($new, 2),
+                'change_amount'   => round((float) $request->adjusted_amount, 2),
+                'reason'          => $request->reason,
+                'user_id'         => $request->user()->id,
+            ]);
+        }
+
         return response()->json(new AdminCashAdjustmentResource($adjustment->load('admin', 'dailyCashEntry')), 201);
+    }
+
+    /**
+     * Live computed main cash balance for a showroom:
+     * SUM(main entries) + SUM(main adjustments) − SUM(self-transfers out) + SUM(self-transfers in).
+     */
+    private function mainCashBalance(int $showroomId): float
+    {
+        $entries = (float) DailyCashEntry::where('showroom_id', $showroomId)
+            ->where('cash_account_type', 'main')
+            ->sum('cash_amount');
+
+        $adj = (float) DB::table('admin_cash_adjustments')
+            ->join('daily_cash_entries', 'admin_cash_adjustments.daily_cash_entry_id', '=', 'daily_cash_entries.id')
+            ->where('daily_cash_entries.showroom_id', $showroomId)
+            ->where('daily_cash_entries.cash_account_type', 'main')
+            ->sum('admin_cash_adjustments.adjusted_amount');
+
+        $selfOut = (float) SelfTransaction::where('from_account_type', 'main')
+            ->where('from_showroom_id', $showroomId)->sum('amount');
+        $selfIn  = (float) SelfTransaction::where('to_account_type', 'main')
+            ->where('to_showroom_id', $showroomId)->sum('amount');
+
+        return $entries + $adj - $selfOut + $selfIn;
     }
 
     public function destroy(AdminCashAdjustment $adminCashAdjustment): JsonResponse

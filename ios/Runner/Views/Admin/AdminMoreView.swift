@@ -9,11 +9,8 @@ struct AdminMoreView: View {
         NavigationStack {
             List {
                 Section("Reports & Logs") {
-                    NavigationLink(destination: ReportsView()) {
-                        Label("Reports", systemImage: "chart.bar.doc.horizontal")
-                    }
-                    NavigationLink(destination: AuditLogView()) {
-                        Label("Audit Log", systemImage: "doc.text.magnifyingglass")
+                    NavigationLink(destination: RecordsView()) {
+                        Label("Records", systemImage: "checklist")
                     }
                 }
 
@@ -86,8 +83,8 @@ struct ReportsView: View {
                         Divider()
                         Picker("Showroom", selection: $selectedShowroomId) {
                             Text("All Showrooms").tag(Optional<Int>.none)
-                            ForEach(showroomVM.showrooms) { s in
-                                Text(s.name).tag(Optional(s.id))
+                            ForEach(showroomVM.showrooms.prioritized()) { s in
+                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
                             }
                         }
                     }
@@ -149,7 +146,7 @@ struct ReportsView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ReportStatCard(title: "Main Cash",   value: s.cashMainAdjusted, raw: s.cashMainTotal, color: Color.mmPrimary,      icon: "banknote.fill")
                 ReportStatCard(title: "Mano Cash",   value: s.cashManoAdjusted, raw: s.cashManoTotal, color: Color.mmAccent,       icon: "person.fill")
-                ReportStatCard(title: "Card Total",  value: s.cardAdjusted,     raw: s.cardTotal,     color: Color(hex: "6366F1"), icon: "creditcard.fill")
+                ReportStatCard(title: "Bank Total",  value: s.cardAdjusted,     raw: s.cardTotal,     color: Color(hex: "6366F1"), icon: "creditcard.fill")
                 ReportStatCard(title: "Grand Total", value: s.grandAdjusted,    raw: s.grandTotal,    color: Color.mmSuccess,      icon: "chart.bar.fill")
             }
             if !s.perShowroom.isEmpty {
@@ -289,12 +286,12 @@ enum AuditTableFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all:          return "All"
         case .cashEntries:  return "Cash Entries"
-        case .cardEntries:  return "Card Entries"
-        case .cardAccounts: return "Card Accounts"
+        case .cardEntries:  return "Bank Entries"
+        case .cardAccounts: return "Bank Accounts"
         case .selfTx:       return "Self Transfers"
         case .cashTx:       return "Cash Transfers"
         case .adjustments:  return "Cash Adjustments"
-        case .cardAdj:      return "Card Adjustments"
+        case .cardAdj:      return "Bank Adjustments"
         case .users:        return "Users"
         case .showrooms:    return "Showrooms"
         }
@@ -462,6 +459,9 @@ struct AuditLogView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") { isSelecting = false; selectedIds = [] }
                     }
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Select All") { selectedIds = Set(vm.logs.map { $0.id }) }
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button("Delete (\(selectedIds.count))") { bulkDeleteAlert = true }
                             .foregroundStyle(Color.mmError)
@@ -625,58 +625,198 @@ struct AuditFilterChip: View {
 struct AuditLogRow: View {
     let log: AuditLog
 
+    // MARK: - Metadata helpers
     var actionColor: Color {
         switch log.action {
-        case "created":          return .mmSuccess
-        case "deleted":          return .mmError
-        case "password_changed": return .mmWarning
-        default:                 return .mmPrimary
+        case "create", "created":               return .mmSuccess
+        case "delete", "deleted":               return .mmError
+        case "password_changed":                return .mmWarning
+        case "role_change":                     return Color(hex: "8B5CF6")
+        case "approve_edit_request":            return .mmSuccess
+        case "reject_edit_request":             return .mmError
+        default:                                return .mmPrimary
+        }
+    }
+
+    var actionIcon: String {
+        switch log.action {
+        case "create", "created":               return "plus.circle.fill"
+        case "update", "updated":               return "pencil.circle.fill"
+        case "delete", "deleted":               return "trash.circle.fill"
+        case "password_changed":                return "lock.rotation"
+        case "role_change":                     return "person.badge.key.fill"
+        case "approve_edit_request":            return "checkmark.seal.fill"
+        case "reject_edit_request":             return "xmark.seal.fill"
+        default:                                return "circle.fill"
+        }
+    }
+
+    var actionLabel: String {
+        switch log.action {
+        case "create", "created":               return "Created"
+        case "update", "updated":               return "Updated"
+        case "delete", "deleted":               return "Deleted"
+        case "password_changed":                return "Password Changed"
+        case "role_change":                     return "Role Changed"
+        case "approve_edit_request":            return "Request Approved"
+        case "reject_edit_request":             return "Request Rejected"
+        default:                                return log.action.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
     var tableLabel: String {
         switch log.tableName {
         case "daily_cash_entries":       return "Cash Entry"
-        case "daily_card_entries":       return "Card Entry"
-        case "card_accounts":            return "Card Account"
+        case "daily_card_entries":       return "Bank Entry"
+        case "card_accounts":            return "Bank Account"
         case "self_transactions":        return "Self Transfer"
         case "cash_transactions":        return "Cash Transfer"
-        case "admin_cash_adjustments":   return "Cash Adj."
-        case "admin_card_adjustments":   return "Card Adj."
+        case "admin_cash_adjustments":   return "Cash Adjustment"
+        case "admin_card_adjustments":   return "Bank Adjustment"
+        case "edit_requests":            return "Edit Request"
         case "showrooms":                return "Showroom"
         case "users":                    return "User"
-        default:                         return log.tableName
+        default:                         return log.tableName.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
-    var actionLabel: String {
+    var tableIcon: String {
+        switch log.tableName {
+        case "daily_cash_entries":       return "banknote"
+        case "daily_card_entries":       return "creditcard"
+        case "card_accounts":            return "creditcard.fill"
+        case "self_transactions":        return "arrow.left.arrow.right"
+        case "cash_transactions":        return "arrow.left.arrow.right.circle"
+        case "admin_cash_adjustments",
+             "admin_card_adjustments":   return "slider.horizontal.3"
+        case "edit_requests":            return "pencil.and.list.clipboard"
+        case "showrooms":                return "building.2"
+        case "users":                    return "person.fill"
+        default:                         return "doc.text"
+        }
+    }
+
+    /// Human-readable summary of what changed
+    var changeSummary: String? {
+        func val(_ dict: [String: AnyCodable]?, _ key: String) -> String? {
+            guard let v = dict?[key] else { return nil }
+            if v.value is NSNull { return nil }
+            let s = "\(v.value)"
+            return (s.isEmpty || s == "nil") ? nil : s
+        }
+        func money(_ s: String) -> String {
+            Double(s).map { "Rs. \(String(format: "%.2f", $0))" } ?? s
+        }
+        func fieldLabel(_ key: String) -> String {
+            key.split(separator: "_")
+               .map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+               .joined(separator: " ")
+        }
+
+        let anyVals = log.newValues ?? log.oldValues
+
         switch log.action {
-        case "created":          return "Created"
-        case "updated":          return "Updated"
-        case "deleted":          return "Deleted"
-        case "password_changed": return "Pwd Changed"
-        default:                 return log.action.capitalized
+        case "role_change":
+            let old = val(log.oldValues, "role") ?? "?"
+            let new = val(log.newValues, "role") ?? "?"
+            return "\(old.capitalized) → \(new.capitalized)"
+
+        case "password_changed": return "Password was updated"
+        case "approve_edit_request": return "Edit request approved"
+        case "reject_edit_request":  return "Edit request rejected"
+
+        case "update", "updated":
+            guard let newVals = log.newValues, !newVals.isEmpty else { return "Updated" }
+            let moneyKeys: Set<String> = ["cash_amount", "amount", "adjusted_amount", "current_balance"]
+            let skipKeys: Set<String> = ["updated_at", "showroom_id", "user_id", "card_account_id"]
+            let parts = newVals.keys.sorted().compactMap { key -> String? in
+                guard !skipKeys.contains(key), let newStr = val(newVals, key) else { return nil }
+                let label = fieldLabel(key)
+                let fmt: (String) -> String = { s in
+                    if moneyKeys.contains(key) { return money(s) }
+                    if key.contains("date") { return s.displayDate }
+                    return s
+                }
+                if let oldStr = val(log.oldValues, key), oldStr != newStr {
+                    return "\(label): \(fmt(oldStr)) → \(fmt(newStr))"
+                } else if log.oldValues == nil {
+                    return "\(label): \(fmt(newStr))"
+                }
+                return nil
+            }
+            return parts.isEmpty ? "Updated" : parts.joined(separator: " · ")
+
+        default:
+            // create / delete
+            var parts: [String] = []
+            if let acct = val(anyVals, "cash_account_type") {
+                parts.append(acct == "mano" ? "Mano's Cash" : "Main Cash")
+            }
+            if let date = val(anyVals, "entry_date") {
+                parts.append(date.displayDate)
+            }
+            if let amt = val(anyVals, "cash_amount") ?? val(anyVals, "amount") {
+                parts.append(money(amt))
+            }
+            if let adj = val(anyVals, "adjusted_amount"), let num = Double(adj) {
+                let sign = num >= 0 ? "+" : ""
+                parts.append("Adj: \(sign)\(money(adj))")
+            }
+            if let n = val(anyVals, "notes") ?? val(anyVals, "reason"), n != "null" {
+                parts.append(n.count > 40 ? String(n.prefix(40)) + "…" : n)
+            }
+            if parts.isEmpty, let name = val(anyVals, "name") { parts.append(name) }
+            if let role = val(anyVals, "role") { parts.append(role.capitalized) }
+            return parts.isEmpty ? nil : parts.joined(separator: " · ")
         }
     }
 
     var body: some View {
         RowCard {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    StatusBadge(text: actionLabel, color: actionColor)
-                    Text(tableLabel)
-                        .font(.system(size: 13, weight: .semibold))
-                    Spacer()
-                    Text(log.createdAt?.displayDateTime ?? "")
-                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+            HStack(spacing: 12) {
+                // Action icon circle
+                ZStack {
+                    Circle()
+                        .fill(actionColor.opacity(0.12))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: actionIcon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(actionColor)
                 }
-                HStack(spacing: 12) {
-                    if let name = log.userName {
-                        Label(name, systemImage: "person.circle")
-                            .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    // Action + table label
+                    HStack(spacing: 6) {
+                        Text(actionLabel)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(actionColor)
+                        Text(tableLabel)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.mmTextPrimary)
+                        Spacer()
                     }
-                    Label("ID \(log.recordId)", systemImage: "number")
-                        .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    // Change summary
+                    if let summary = changeSummary {
+                        Text(summary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.mmTextSecondary)
+                            .lineLimit(2)
+                    }
+                    // User + record + time
+                    HStack(spacing: 8) {
+                        if let name = log.userName {
+                            Label(name, systemImage: "person.circle")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.mmTextSecondary)
+                        }
+                        Label("#\(log.recordId)", systemImage: "number")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.mmTextSecondary)
+                        Spacer()
+                        Text(log.createdAt?.displayDateTime ?? "")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.mmTextSecondary)
+                    }
                 }
             }
         }
@@ -687,6 +827,11 @@ struct AuditLogRow: View {
 // MARK: - Settings
 
 struct SettingsView: View {
+    @StateObject private var settingsVM = SettingsViewModel()
+    @State private var cashEnabled = true
+    @State private var bankEnabled = true
+    @State private var loaded = false
+
     var body: some View {
         List {
             Section("Edit Window") {
@@ -709,11 +854,63 @@ struct SettingsView: View {
                     .padding(.vertical, 4)
                 }
             }
+
+            Section {
+                Toggle(isOn: $cashEnabled) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "banknote.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.mmPrimary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.mmPrimary.opacity(0.1))
+                            .cornerRadius(8)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cash Entries").font(.system(size: 14, weight: .medium))
+                            Text("Allow staff to submit cash entries")
+                                .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                    }
+                }
+                .onChange(of: cashEnabled) { newValue in
+                    guard loaded else { return }
+                    Task { try? await settingsVM.update(key: "cash_entries_enabled", value: newValue ? "1" : "0") }
+                }
+
+                Toggle(isOn: $bankEnabled) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "creditcard.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "6366F1"))
+                            .frame(width: 32, height: 32)
+                            .background(Color(hex: "6366F1").opacity(0.1))
+                            .cornerRadius(8)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Bank Entries").font(.system(size: 14, weight: .medium))
+                            Text("Allow staff to submit bank entries")
+                                .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                    }
+                }
+                .onChange(of: bankEnabled) { newValue in
+                    guard loaded else { return }
+                    Task { try? await settingsVM.update(key: "bank_entries_enabled", value: newValue ? "1" : "0") }
+                }
+            } header: {
+                Text("Staff Entry Access")
+            } footer: {
+                Text("When disabled, staff cannot submit new cash or bank entries. Admins are always able to add entries.")
+            }
         }
         .listStyle(.insetGrouped)
         .background(Color.mmBackground)
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await settingsVM.fetchAll()
+            cashEnabled = settingsVM.settings.first(where: { $0.key == "cash_entries_enabled" })?.value != "0"
+            bankEnabled = settingsVM.settings.first(where: { $0.key == "bank_entries_enabled" })?.value != "0"
+            loaded = true
+        }
     }
 }
 

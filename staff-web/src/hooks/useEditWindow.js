@@ -14,6 +14,8 @@ export function useEditWindow() {
     isOpen: data?.is_within_window ?? false,
     windowStart: data?.edit_window_start ?? null,
     windowEnd: data?.edit_window_end ?? null,
+    cashEntriesEnabled: data?.cash_entries_enabled ?? true,
+    bankEntriesEnabled: data?.bank_entries_enabled ?? true,
     loading,
   }
 }

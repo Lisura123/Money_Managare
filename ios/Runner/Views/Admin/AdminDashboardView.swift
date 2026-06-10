@@ -104,45 +104,27 @@ struct AdminDashboardView: View {
                 .multilineTextAlignment(.trailing)
         }
 
-        // 4 summary cards
-        let mainLiveBalance = extVM.accounts.first(where: { $0.cashAccountType == "main" })?.balance ?? s.today.cashMainAdjusted
-        let manoLiveBalance = extVM.accounts.first(where: { $0.cashAccountType == "mano" })?.balance ?? s.today.cashManoAdjusted
+        // Summary cards — totals match the sum of the per-showroom live balances below
+        let liveTotalCash = cashVM.showrooms.reduce(0) { $0 + $1.balance }
+        let liveTotalBank = cardVM.accounts.reduce(0) { $0 + $1.currentBalance }
+        let liveTotalMano = extVM.accounts.filter { $0.cashAccountType == "mano" }.reduce(0) { $0 + $1.balance }
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            SummaryCard(title: "Main Account",  value: mainLiveBalance,
-                        raw: s.today.cashMainTotal, icon: "banknote.fill", color: Color.mmPrimary,
-                        sublabel: "Today: \(s.today.cashMainAdjusted.currency)")
-            SummaryCard(title: "Mano Cash",  value: manoLiveBalance,
-                        raw: s.today.cashManoTotal, icon: "person.fill",   color: Color.mmAccent,
-                        sublabel: "Today: \(s.today.cashManoAdjusted.currency)")
-            SummaryCard(title: "Card Total", value: s.today.cardAdjusted,
-                        raw: s.today.cardTotal,      icon: "creditcard.fill", color: Color(hex: "6366F1"))
-            SummaryCard(title: "Grand Total", value: s.today.grandAdjusted,
-                        raw: s.today.grandTotal,     icon: "chart.bar.fill",  color: Color.mmSuccess)
+            SummaryCard(title: "Total Cash Amount",  value: liveTotalCash,
+                        raw: liveTotalCash, icon: "banknote.fill", color: Color.mmPrimary)
+            SummaryCard(title: "Total Mano's Amount",  value: liveTotalMano,
+                        raw: liveTotalMano, icon: "person.fill",   color: Color.mmAccent)
+            SummaryCard(title: "Total Bank Amount", value: liveTotalBank,
+                        raw: liveTotalBank,      icon: "creditcard.fill", color: Color(hex: "6366F1"))
         }
 
-        // Live balances strip — external cash accounts
-        if !extVM.accounts.isEmpty {
-            VStack(spacing: 8) {
-                ForEach(extVM.accounts) { acc in
-                    let isMain = acc.cashAccountType == "main"
-                    LiveBalanceRow(
-                        icon: isMain ? "building.columns.fill" : "banknote",
-                        iconColor: isMain ? Color.mmPrimary : Color.mmAccent,
-                        label: acc.name,
-                        sublabel: "Live balance",
-                        balance: acc.balance
-                    )
-                }
-            }
-        }
-
-        // Per-showroom breakdown — today entries + live card/cash balances
+        // Per-showroom breakdown — live cash + bank balances
         if !s.today.perShowroom.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: "Per Showroom — Today")
-                ForEach(s.today.perShowroom) { snap in
+                SectionHeader(title: "Per Showroom")
+                ForEach(orderedShowrooms(s.today.perShowroom)) { snap in
                     ShowroomSnapshotCard(
                         snap: snap,
+                        isMain: isMainShowroom(snap.showroomName),
                         liveCards: cardVM.accounts.filter { $0.showroomId == snap.showroomId },
                         liveCash: cashVM.showrooms.first { $0.showroomId == snap.showroomId }?.balance ?? 0,
                         isExpanded: expandedShowrooms.contains(snap.showroomId)
@@ -155,6 +137,29 @@ struct AdminDashboardView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Showroom ordering helpers
+
+    /// The two flagship showrooms shown at the top and highlighted.
+    private func isMainShowroom(_ name: String) -> Bool {
+        let upper = name.uppercased()
+        return upper.contains("CAMERALK") || upper.contains("SONY")
+    }
+
+    /// Main showrooms first (CAMERALK, then SONY), remaining showrooms after.
+    private func orderedShowrooms(_ list: [ShowroomSnapshot]) -> [ShowroomSnapshot] {
+        func rank(_ s: ShowroomSnapshot) -> Int {
+            let upper = s.showroomName.uppercased()
+            if upper.contains("CAMERALK") { return 0 }
+            if upper.contains("SONY")     { return 1 }
+            return 2
+        }
+        return list.sorted { a, b in
+            let ra = rank(a), rb = rank(b)
+            if ra != rb { return ra < rb }
+            return a.showroomName < b.showroomName
         }
     }
 }
@@ -248,6 +253,7 @@ private struct LiveBalanceRow: View {
 
 private struct ShowroomSnapshotCard: View {
     let snap: ShowroomSnapshot
+    let isMain: Bool
     let liveCards: [CardAccount]
     let liveCash: Double
     let isExpanded: Bool
@@ -260,21 +266,35 @@ private struct ShowroomSnapshotCard: View {
             // Header row — always visible
             Button(action: onTap) {
                 HStack(spacing: 12) {
-                    Image(systemName: "storefront.fill")
+                    Image(systemName: isMain ? "star.fill" : "storefront.fill")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color.mmPrimary)
+                        .foregroundStyle(isMain ? Color.mmWarning : Color.mmPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color.mmPrimary.opacity(0.1))
+                        .background((isMain ? Color.mmWarning : Color.mmPrimary).opacity(0.12))
                         .cornerRadius(8)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(snap.showroomName)
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("\(snap.entryCount) entr\(snap.entryCount == 1 ? "y" : "ies") today")
-                            .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            .font(.system(size: 14, weight: isMain ? .bold : .semibold))
+                        if isMain {
+                            Text("Main showroom")
+                                .font(.system(size: 11, weight: .medium)).foregroundStyle(Color.mmWarning)
+                        }
                     }
                     Spacer()
-                    Text(snap.combinedTotal.currency)
-                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmAccent)
+                    VStack(alignment: .trailing, spacing: 3) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "banknote.fill")
+                                .font(.system(size: 9)).foregroundStyle(Color.mmPrimary)
+                            Text(liveCash.currency)
+                                .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "creditcard.fill")
+                                .font(.system(size: 9)).foregroundStyle(Color(hex: "6366F1"))
+                            Text(liveTotalCards.currency)
+                                .font(.system(size: 13, weight: .bold)).foregroundStyle(Color(hex: "6366F1"))
+                        }
+                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                 }
@@ -285,17 +305,10 @@ private struct ShowroomSnapshotCard: View {
             if isExpanded {
                 Divider().padding(.horizontal, 14)
 
-                // Today entries summary
                 VStack(spacing: 0) {
-                    expandRow(label: "Cash Main (today)",  value: snap.cashMainAdjusted,  raw: snap.cashMainTotal,  color: Color.mmPrimary)
-                    expandRow(label: "Cash Mano (today)",  value: snap.cashManoAdjusted,  raw: snap.cashManoTotal,  color: Color.mmAccent)
-                    expandRow(label: "Card Entry (today)", value: snap.cardAdjusted,       raw: snap.cardTotal,      color: Color(hex: "6366F1"))
-
-                    Divider().padding(.horizontal, 14).padding(.vertical, 4)
-
-                    // Live balances
+                    // Totals
                     HStack {
-                        Label("Main Cash (live)", systemImage: "banknote.fill")
+                        Label("Total Main Cash Amount", systemImage: "banknote.fill")
                             .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
                         Spacer()
                         Text(liveCash.currency)
@@ -304,7 +317,7 @@ private struct ShowroomSnapshotCard: View {
                     .padding(.horizontal, 14).padding(.vertical, 7)
 
                     HStack {
-                        Label("Card Balance (live)", systemImage: "creditcard.fill")
+                        Label("Total Bank Amount", systemImage: "creditcard.fill")
                             .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
                         Spacer()
                         Text(liveTotalCards.currency)
@@ -312,8 +325,9 @@ private struct ShowroomSnapshotCard: View {
                     }
                     .padding(.horizontal, 14).padding(.vertical, 7)
 
+                    // Individual bank account balances
                     if !liveCards.isEmpty {
-                        Divider().padding(.horizontal, 14)
+                        Divider().padding(.horizontal, 14).padding(.vertical, 4)
                         ForEach(liveCards) { acc in
                             HStack {
                                 Text(acc.displayLabel)
@@ -332,23 +346,12 @@ private struct ShowroomSnapshotCard: View {
         }
         .background(Color.mmCard)
         .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(isMain ? Color.mmWarning.opacity(0.5) : Color.clear, lineWidth: isMain ? 1.5 : 0)
+        )
         .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
-    }
-
-    @ViewBuilder
-    private func expandRow(label: String, value: Double, raw: Double, color: Color) -> some View {
-        HStack {
-            Text(label).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-            if abs(value - raw) > 0.001 {
-                Text("adj").font(.system(size: 9, weight: .semibold)).foregroundStyle(color)
-                    .padding(.horizontal, 4).padding(.vertical, 1)
-                    .background(color.opacity(0.12)).cornerRadius(3)
-            }
-            Spacer()
-            Text(value.currency).font(.system(size: 13, weight: .semibold)).foregroundStyle(color)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 7)
     }
 }
 
@@ -403,7 +406,7 @@ struct ShowroomSnapshotRow: View {
                     Text(snap.cashManoTotal.currency).font(.system(size: 13, weight: .medium))
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Card").font(.system(size: 10)).foregroundStyle(Color.mmTextSecondary)
+                    Text("Bank").font(.system(size: 10)).foregroundStyle(Color.mmTextSecondary)
                     Text(snap.cardTotal.currency).font(.system(size: 13, weight: .medium))
                 }
                 Spacer()

@@ -11,6 +11,7 @@ struct SelfTransaction: Decodable, Identifiable {
     let fromShowroomName: String?
     let toCardAccountId: Int?
     let toExternalAccountId: Int?
+    let toExternalName: String?
     let toAccountType: String?
     let toBankName: String?
     let toLastFour: String?
@@ -31,6 +32,7 @@ struct SelfTransaction: Decodable, Identifiable {
 
     var toDisplay: String {
         if toAccountType == "main" { return "Main Cash" }
+        if let n = toExternalName { return n }
         let parts = [toShowroomName, toBankName.map { "\($0) •••• \(toLastFour ?? "")" }]
         let joined = parts.compactMap { $0 }.joined(separator: " — ")
         return joined.isEmpty ? (notes.map { _ in "Others" } ?? "—") : joined
@@ -46,6 +48,7 @@ struct SelfTransaction: Decodable, Identifiable {
         case toCardAccountId       = "to_card_account_id"
         case toCardAccount         = "to_card_account"
         case toExternalAccountId   = "to_external_account_id"
+        case toExternalAccount     = "to_external_account"
         case toAccountType         = "to_account_type"
         case amount, notes
         case adminId   = "admin_id"
@@ -94,6 +97,8 @@ struct SelfTransaction: Decodable, Identifiable {
         toBankName     = to?.bankName
         toLastFour     = to?.lastFour
         toShowroomName = to?.showroom?.name
+
+        toExternalName = (try? c.decode(ExternalNested.self, forKey: .toExternalAccount))?.name
 
         adminName = (try? c.decode(NameNested.self, forKey: .admin))?.name
 

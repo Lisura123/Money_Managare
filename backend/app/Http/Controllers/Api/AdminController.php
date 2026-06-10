@@ -28,7 +28,7 @@ class AdminController extends Controller
         $data['role']     = 'admin';
         $data['password'] = Hash::make($data['password']);
         $user = User::create($data);
-        return response()->json(new UserResource($user), 201);
+        return (new UserResource($user))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, User $admin): JsonResponse

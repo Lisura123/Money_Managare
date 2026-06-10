@@ -6,7 +6,7 @@ import { ROLES } from '../../utils/constants'
 const STAFF_TABS = [
   { to: '/dashboard', icon: MdDashboard, label: 'Home' },
   { to: '/history', icon: MdHistory, label: 'History' },
-  { to: '/card-entry', icon: MdCreditCard, label: 'Card' },
+  { to: '/card-entry', icon: MdCreditCard, label: 'Bank' },
   { to: '/edit-requests', icon: MdEditNote, label: 'Requests' },
   { to: '/profile', icon: MdPerson, label: 'Profile' },
 ]
