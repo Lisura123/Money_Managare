@@ -57,7 +57,10 @@ class DailyCashEntryController extends Controller
         $query = DailyCashEntry::with('showroom', 'user', 'adjustments')
             // Exclude zero-amount carrier entries created solely to anchor a Main Cash
             // adjustment. The adjustment itself is shown under Records → Cash Adjustments.
-            ->where('cash_amount', '>', 0);
+            ->where('cash_amount', '>', 0)
+            // Exclude seeded opening-balance entries — these are shown under
+            // Records → Balance Updates instead.
+            ->where('notes', '!=', 'Opening balance');
 
         if ($request->filled('showroom_id')) {
             $query->where('showroom_id', $request->showroom_id);

@@ -171,7 +171,16 @@ struct CardAccountFormView: View {
     @State private var lastFour = ""
     @State private var balance = ""
     @State private var isActive = true
+    @State private var reason = ""
     @State private var error: String?
+
+    private let reasonChips = ["Balance correction", "Cash deposit", "Cash withdrawal", "Transfer", "Other"]
+
+    private var isEditing: Bool { existing != nil }
+    private var balanceChanged: Bool {
+        guard isEditing, let a = existing else { return false }
+        return (Double(balance) ?? 0) != a.currentBalance
+    }
 
     var body: some View {
         NavigationStack {
@@ -190,17 +199,48 @@ struct CardAccountFormView: View {
                         .keyboardType(.decimalPad)
                     Toggle("Active", isOn: $isActive)
                 }
+                // Show reason section only when editing and balance has changed
+                if balanceChanged {
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Reason for balance change")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.mmTextSecondary)
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                                ForEach(reasonChips, id: \.self) { chip in
+                                    Button { reason = chip } label: {
+                                        Text(chip)
+                                            .font(.system(size: 12, weight: reason == chip ? .semibold : .regular))
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal, 8).padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity)
+                                            .background(reason == chip ? Color.mmPrimary : Color.mmInputFill)
+                                            .foregroundStyle(reason == chip ? .white : Color.mmTextPrimary)
+                                            .cornerRadius(10)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            if reason == "Other" {
+                                TextField("Custom reason…", text: $reason)
+                                    .font(.system(size: 13))
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
                 if let e = error {
                     Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) }
                 }
             }
-            .navigationTitle(existing == nil ? "New Bank Account" : "Edit Bank Account")
+            .navigationTitle(isEditing ? "Edit Bank Account" : "New Bank Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(vm.isSubmitting || bankName.isEmpty || lastFour.count != 4)
+                        .disabled(vm.isSubmitting || bankName.isEmpty || lastFour.count != 4
+                                  || (balanceChanged && reason.isEmpty))
                 }
             }
             .onAppear {
@@ -218,8 +258,10 @@ struct CardAccountFormView: View {
         let bal = Double(balance) ?? 0
         do {
             if let a = existing {
+                let r = balanceChanged ? reason.trimmingCharacters(in: .whitespaces) : nil
                 try await vm.update(a.id, showroomId: sId, bankName: bankName,
-                                    lastFour: lastFour, currentBalance: bal, isActive: isActive)
+                                    lastFour: lastFour, currentBalance: bal,
+                                    isActive: isActive, reason: r)
             } else {
                 try await vm.create(showroomId: sId, bankName: bankName,
                                     lastFour: lastFour, currentBalance: bal, isActive: isActive)

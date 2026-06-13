@@ -110,9 +110,15 @@ class DashboardController extends Controller
             ->whereBetween('created_at', [$start, $end])
             ->sum('amount');
 
+        // Card opening balances are stored on card_accounts (not in daily_card_entries).
+        // Include them in the bank total for the date range when the opening balance was set.
+        $cardOpeningBalance = (float) DB::table('card_accounts')
+            ->whereBetween('opening_balance_date', [$startDate, $endDate])
+            ->sum('opening_balance');
+
         $cashTotal = $cashEntries('main') + $cashAdj('main') - $transferOut('main') + $transferIn('main');
         $manoTotal = $cashEntries('mano') + $cashAdj('mano') - $manoTransferOut + $manoTransferIn;
-        $bankTotal = $cardEntries + $cardAdj - $transferOut('card') + $transferIn('card');
+        $bankTotal = $cardEntries + $cardOpeningBalance + $cardAdj - $transferOut('card') + $transferIn('card');
 
         return response()->json([
             'cash_total' => round($cashTotal, 2),

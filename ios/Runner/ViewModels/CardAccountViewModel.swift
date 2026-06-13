@@ -43,13 +43,14 @@ final class CardAccountViewModel: ObservableObject {
     }
 
     func update(_ id: Int, showroomId: Int, bankName: String, lastFour: String,
-                currentBalance: Double, isActive: Bool) async throws {
+                currentBalance: Double, isActive: Bool, reason: String? = nil) async throws {
         isSubmitting = true; defer { isSubmitting = false }
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "showroom_id": showroomId, "bank_name": bankName,
             "last_four": lastFour, "current_balance": currentBalance,
             "is_active": isActive
         ]
+        if let r = reason { body["reason"] = r }
         let updated: CardAccount = try await api.put("/card-accounts/\(id)", body: body)
         if let idx = accounts.firstIndex(where: { $0.id == id }) {
             accounts[idx] = updated

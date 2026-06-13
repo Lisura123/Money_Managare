@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CardAccount extends Model
 {
-    protected $fillable = ['showroom_id', 'bank_name', 'last_four', 'current_balance', 'opening_balance', 'is_active'];
+    protected $fillable = ['showroom_id', 'bank_name', 'last_four', 'current_balance', 'opening_balance', 'opening_balance_date', 'is_active'];
 
     protected $casts = [
         'current_balance' => 'decimal:2',
