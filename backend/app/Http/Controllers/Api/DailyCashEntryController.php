@@ -25,8 +25,25 @@ class DailyCashEntryController extends Controller
             return response()->json(['message' => 'Entry submission is only allowed during the edit window.'], 422);
         }
 
+        // Resolve showroom: staff can submit for any of their assigned showrooms.
+        $showroomId = $user->showroom_id;
+        if ($request->filled('showroom_id') && ! $user->isAdmin()) {
+            $allowed = $user->showrooms()->pluck('showrooms.id')->push($user->showroom_id)->unique()->filter()->values();
+            if (! $allowed->contains((int) $request->showroom_id)) {
+                return response()->json(['message' => 'You are not assigned to this showroom.'], 403);
+            }
+            $showroomId = (int) $request->showroom_id;
+        } elseif ($request->filled('showroom_id') && $user->isAdmin()) {
+            $showroomId = (int) $request->showroom_id;
+        }
+
+        // Mano's cash is a global account — it is never tied to a showroom.
+        if (($request->cash_account_type ?? 'main') === 'mano') {
+            $showroomId = null;
+        }
+
         $entry = DailyCashEntry::create([
-            'showroom_id'       => $user->showroom_id,
+            'showroom_id'       => $showroomId,
             'user_id'           => $user->id,
             'entry_date'        => $request->entry_date,
             'cash_amount'       => $request->cash_amount,
@@ -58,9 +75,9 @@ class DailyCashEntryController extends Controller
             // Exclude zero-amount carrier entries created solely to anchor a Main Cash
             // adjustment. The adjustment itself is shown under Records → Cash Adjustments.
             ->where('cash_amount', '>', 0)
-            // Exclude seeded opening-balance entries — these are shown under
-            // Records → Balance Updates instead.
-            ->where('notes', '!=', 'Opening balance');
+            // Exclude seeded opening-balance / balance-update entries — these are shown
+            // under Records → Balance Updates instead.
+            ->whereNotIn('notes', ['Opening balance', 'Balance update']);
 
         if ($request->filled('showroom_id')) {
             $query->where('showroom_id', $request->showroom_id);
@@ -81,7 +98,8 @@ class DailyCashEntryController extends Controller
         // Calculate total across ALL matching entries (not just the current page)
         $totalAmount = (clone $query)->sum('cash_amount');
 
-        $entries  = $query->orderByDesc('entry_date')->paginate(20);
+        $perPage  = min((int) $request->input('per_page', 20), 500);
+        $entries  = $query->orderByDesc('entry_date')->paginate($perPage);
         $response = DailyCashEntryResource::collection($entries)->response()->getData(true);
 
         // Inject total_amount into the existing meta object

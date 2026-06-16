@@ -6,18 +6,32 @@ struct CashEntryView: View {
     @StateObject private var vm = CashEntryViewModel()
     @StateObject private var editWindowVM = EditWindowViewModel()
 
+    @State private var selectedAccount: String = "main"  // "main" or "mano"
     @State private var mainAmount = ""
     @State private var mainNotes  = ""
+    @State private var manoAmount = ""
+    @State private var manoNotes  = ""
     @State private var entryDate  = Date()
+    @State private var selectedShowroomId: Int?
     @State private var error: String?
     @State private var success = false
     @State private var showLargeAmountConfirm = false
 
-    private var showroomId: Int? { auth.user?.showroomId }
+    /// Showrooms the logged-in staff member is assigned to.
+    private var assignedShowrooms: [Showroom] { auth.user?.showrooms ?? [] }
+    private var hasMultipleShowrooms: Bool { assignedShowrooms.count > 1 }
+
+    /// Resolved showroom for the entry: the picked one when multiple are
+    /// assigned, otherwise the single assigned showroom.
+    private var showroomId: Int? {
+        hasMultipleShowrooms ? selectedShowroomId : (assignedShowrooms.first?.id ?? auth.user?.showroomId)
+    }
     private static let largeThreshold: Double = 1_000_000
 
-    /// Form is locked when the window is closed OR cash entries are disabled by admin.
+    /// Form is locked when the window is closed, cash entries are disabled by admin.
     private var formLocked: Bool { !editWindowVM.isOpen || !editWindowVM.cashEnabled }
+    /// Showroom is only needed for Main Cash when the user is assigned to multiple showrooms.
+    private var needsShowroomSelection: Bool { selectedAccount == "main" && hasMultipleShowrooms && selectedShowroomId == nil }
 
     var body: some View {
         NavigationStack {
@@ -35,6 +49,19 @@ struct CashEntryView: View {
                         cashDisabledBanner
                     } else if !editWindowVM.isOpen {
                         editWindowClosedBanner
+                    }
+
+                    // Account type selector
+                    Picker("Account", selection: $selectedAccount) {
+                        Label("Main Cash",   systemImage: "banknote").tag("main")
+                        Label("Mano's Cash", systemImage: "person.crop.circle.badge.checkmark").tag("mano")
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.vertical, 4)
+
+                    // Showroom selector — only required for Main Cash when assigned to multiple showrooms
+                    if selectedAccount == "main" && hasMultipleShowrooms {
+                        showroomPicker
                     }
 
                     // Entry date picker
@@ -56,9 +83,8 @@ struct CashEntryView: View {
                     .background(Color.mmCard)
                     .cornerRadius(14)
 
-                    // Account entry fields — disabled when window is closed
-                    Group {
-                        // Main cash entry section
+                    // Account entry fields — disabled when window is closed or showroom needed
+                    if selectedAccount == "main" {
                         entrySection(
                             title: "Main Cash Account",
                             icon: "banknote",
@@ -66,20 +92,30 @@ struct CashEntryView: View {
                             notesBinding: $mainNotes,
                             accountType: "main"
                         )
+                        .disabled(formLocked || needsShowroomSelection)
+                        .opacity(formLocked || needsShowroomSelection ? 0.45 : 1)
+                    } else {
+                        entrySection(
+                            title: "Mano's Cash Account",
+                            icon: "person.crop.circle.badge.checkmark",
+                            amountBinding: $manoAmount,
+                            notesBinding: $manoNotes,
+                            accountType: "mano"
+                        )
+                        .disabled(formLocked)
+                        .opacity(formLocked ? 0.45 : 1)
                     }
-                    .disabled(formLocked)
-                    .opacity(formLocked ? 0.45 : 1)
 
-                    MMButton(title: "Submit Entries",
+                    MMButton(title: "Submit Entry",
                              isLoading: vm.isSubmitting) {
-                        let mainAmt = Double(mainAmount) ?? -1
-                        if mainAmt >= Self.largeThreshold {
+                        let amt = selectedAccount == "main" ? (Double(mainAmount) ?? -1) : (Double(manoAmount) ?? -1)
+                        if amt >= Self.largeThreshold {
                             showLargeAmountConfirm = true
                         } else {
                             Task { await submit() }
                         }
                     }
-                    .disabled(formLocked)
+                    .disabled(formLocked || needsShowroomSelection)
                 }
                 .padding(20)
             }
@@ -94,6 +130,7 @@ struct CashEntryView: View {
             .task {
                 await editWindowVM.fetch()
                 await vm.fetchMyHistory(cashAccountType: nil, refresh: true)
+                if !hasMultipleShowrooms { selectedShowroomId = assignedShowrooms.first?.id ?? auth.user?.showroomId }
             }
             .confirmationDialog(
                 "Large Amount",
@@ -103,17 +140,47 @@ struct CashEntryView: View {
                 Button("Submit Anyway", role: .destructive) { Task { await submit() } }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("One or more amounts are ≥ Rs. 1,000,000. Are you sure?")
+                Text("Amount is ≥ Rs. 1,000,000. Are you sure?")
             }
         }
+    }
+
+    // MARK: - Showroom picker (multi-showroom staff)
+
+    private var showroomPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Showroom", systemImage: "building.2")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.mmTextSecondary)
+            Picker(selection: $selectedShowroomId) {
+                Text("Select showroom…").tag(Optional<Int>.none)
+                ForEach(assignedShowrooms) { sr in
+                    Text(sr.name).tag(Optional<Int>.some(sr.id))
+                }
+            } label: { Text("Select Showroom") }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.mmInputFill)
+            .cornerRadius(10)
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+
+            if selectedShowroomId == nil {
+                Text("Please select a showroom before adding an entry.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.mmError)
+            }
+        }
+        .padding(16)
+        .background(Color.mmCard)
+        .cornerRadius(14)
     }
 
     @ViewBuilder
     private func entrySection(title: String, icon: String,
                                amountBinding: Binding<String>,
                                notesBinding: Binding<String>,
-                               accountType: String) -> some View {
-        let todayStr = dateString(entryDate)
+                               accountType: String) -> some View {        let todayStr = dateString(entryDate)
         let todayEntries = vm.myHistory.filter {
             $0.cashAccountType == accountType && $0.entryDate == todayStr
         }
@@ -185,23 +252,40 @@ struct CashEntryView: View {
     }
 
     private func submit() async {
-        guard let sId = showroomId else { error = "No showroom assigned."; return }
-        let mainAmt = Double(mainAmount) ?? -1
-        guard mainAmt >= 0 else {
-            error = "Enter a valid amount."
-            return
-        }
-        let dateStr = dateString(entryDate)
-        error = nil
-        do {
-            try await vm.submit(showroomId: sId, cashAmount: mainAmt,
-                                notes: mainNotes.isEmpty ? nil : mainNotes,
-                                cashAccountType: "main", entryDate: dateStr)
-            success = true
-            mainAmount = ""; mainNotes = ""
-            await vm.fetchMyHistory(cashAccountType: nil, refresh: true)
-        } catch {
-            self.error = error.localizedDescription
+        let isMano = selectedAccount == "mano"
+
+        if isMano {
+            // Mano's Cash — no showroom required
+            let manoAmt = Double(manoAmount) ?? -1
+            guard manoAmt >= 0 else { error = "Enter a valid amount."; return }
+            let dateStr = dateString(entryDate)
+            error = nil
+            do {
+                try await vm.submit(showroomId: nil, cashAmount: manoAmt,
+                                    notes: manoNotes.isEmpty ? nil : manoNotes,
+                                    cashAccountType: "mano", entryDate: dateStr)
+                success = true
+                manoAmount = ""; manoNotes = ""
+                await vm.fetchMyHistory(cashAccountType: nil, refresh: true)
+            } catch { self.error = error.localizedDescription }
+        } else {
+            // Main Cash — showroom required
+            guard let sId = showroomId else {
+                error = hasMultipleShowrooms ? "Please select a showroom first." : "No showroom assigned."
+                return
+            }
+            let mainAmt = Double(mainAmount) ?? -1
+            guard mainAmt >= 0 else { error = "Enter a valid amount."; return }
+            let dateStr = dateString(entryDate)
+            error = nil
+            do {
+                try await vm.submit(showroomId: sId, cashAmount: mainAmt,
+                                    notes: mainNotes.isEmpty ? nil : mainNotes,
+                                    cashAccountType: "main", entryDate: dateStr)
+                success = true
+                mainAmount = ""; mainNotes = ""
+                await vm.fetchMyHistory(cashAccountType: nil, refresh: true)
+            } catch { self.error = error.localizedDescription }
         }
     }
 

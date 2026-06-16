@@ -20,16 +20,26 @@ class DailyCardEntryRequest extends FormRequest
     public function rules(): array
     {
         $isUpdate   = $this->isMethod('PUT') || $this->isMethod('PATCH');
-        $showroomId = $this->user()?->showroom_id;
+        $user       = $this->user();
+
+        // Resolve all showrooms the staff member is assigned to (primary + pivot).
+        // Admins may submit for any showroom.
+        $allowedShowroomIds = $user && ! $user->isAdmin()
+            ? $user->showrooms()->pluck('showrooms.id')->push($user->showroom_id)->unique()->filter()->values()->all()
+            : null;
+
+        $cardAccountExists = Rule::exists('card_accounts', 'id')->where('is_active', true);
+        if ($allowedShowroomIds !== null) {
+            $cardAccountExists->whereIn('showroom_id', $allowedShowroomIds);
+        }
 
         return [
             'card_account_id' => [
                 $isUpdate ? 'sometimes' : 'required',
                 'integer',
-                Rule::exists('card_accounts', 'id')
-                    ->where('showroom_id', $showroomId)
-                    ->where('is_active', true),
+                $cardAccountExists,
             ],
+            'showroom_id' => ['sometimes', 'nullable', 'integer', 'exists:showrooms,id'],
             'entry_date' => [$isUpdate ? 'sometimes' : 'required', 'date'],
             'amount'     => [$isUpdate ? 'sometimes' : 'required', 'numeric', 'min:0.01', 'max:99999999.99'],
             'notes'      => ['nullable', 'string', 'max:1000'],

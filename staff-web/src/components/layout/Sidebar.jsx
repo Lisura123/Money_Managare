@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  MdBarChart,
   MdChevronLeft,
   MdChevronRight,
   MdCreditCard,
@@ -11,7 +10,6 @@ import {
   MdLogout,
   MdPeople,
   MdPerson,
-  MdReceipt,
   MdSettings,
   MdStorefront,
   MdSwapHoriz,
@@ -39,21 +37,32 @@ const STAFF_NAV = [
   { to: '/profile', icon: MdPerson, label: 'Profile' },
 ]
 
+// iOS-matching admin nav (mirrors iOS tab order: Dashboard, Entries, Transfers, Showrooms, More)
 const ADMIN_NAV = [
-  { to: '/admin/dashboard', icon: MdDashboard, label: 'Dashboard' },
-  { to: '/admin/showrooms', icon: MdStorefront, label: 'Showrooms' },
-  { to: '/admin/staff', icon: MdPeople, label: 'Staff' },
-  { to: '/admin/cash-entries', icon: MdWallet, label: 'Cash Entries' },
-  { to: '/admin/card-entries', icon: MdCreditCard, label: 'Bank Entries' },
-  { to: '/admin/edit-requests', icon: MdEditNote, label: 'Edit Requests', badge: true },
-  { to: '/admin/self-transactions', icon: MdSwapHoriz, label: 'Self Transactions' },
-  { to: '/admin/cash-transactions', icon: MdSwapHoriz, label: 'Cash Transfers' },
-  { to: '/admin/cash-adjustments', icon: MdTune, label: 'Cash Adjustments' },
-  { to: '/admin/card-adjustments', icon: MdTune, label: 'Bank Adjustments' },
-  { to: '/admin/reports', icon: MdBarChart, label: 'Reports' },
-  { to: '/admin/audit-logs', icon: MdListAlt, label: 'Audit Logs' },
-  { to: '/admin/settings', icon: MdSettings, label: 'Settings' },
-  { to: '/change-password', icon: MdReceipt, label: 'Change Password' },
+  { to: '/admin/dashboard',       icon: MdDashboard,  label: 'Dashboard' },
+  // Entries tab
+  { type: 'group', label: 'Entries' },
+  { to: '/admin/cash-entries',    icon: MdWallet,     label: 'Cash Entries' },
+  { to: '/admin/card-entries',    icon: MdCreditCard, label: 'Bank Entries' },
+  { to: '/admin/cash-adjustments',icon: MdTune,       label: 'Cash Adjustments' },
+  { to: '/admin/card-adjustments',icon: MdTune,       label: 'Bank Adjustments' },
+  // Transfers tab
+  { type: 'group', label: 'Transfers' },
+  { to: '/admin/self-transactions',icon: MdSwapHoriz, label: 'Self Transfers' },
+  // Showrooms tab (top-level in iOS)
+  { type: 'group', label: 'Showrooms' },
+  { to: '/admin/showrooms',       icon: MdStorefront, label: 'Showrooms' },
+  // More → Reports & Logs
+  { type: 'group', label: 'Reports & Logs' },
+  { to: '/admin/records',         icon: MdListAlt,    label: 'Records' },
+  // More → Management
+  { type: 'group', label: 'Management' },
+  { to: '/admin/staff',           icon: MdPeople,     label: 'User Management' },
+  { to: '/admin/edit-requests',   icon: MdEditNote,   label: 'Edit Requests', badge: true },
+  { to: '/admin/settings',        icon: MdSettings,   label: 'Settings' },
+  // More → Account
+  { type: 'group', label: 'Account' },
+  { to: '/change-password',       icon: MdPerson,     label: 'Change Password' },
 ]
 
 export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }) {
@@ -143,34 +152,34 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-          {NAV_ITEMS.map((item) => {
+        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {NAV_ITEMS.map((item, idx) => {
+            // Group header (admin only)
+            if (item.type === 'group') {
+              if (collapsed) return null
+              return (
+                <p key={`g-${idx}`} className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                  {item.label}
+                </p>
+              )
+            }
+
             if (item.children) {
-              // Cash Entry expandable item
+              // Staff Cash Entry expandable
               return (
                 <div key={item.label}>
                   <button
                     onClick={() => {
-                      if (collapsed) {
-                        onToggle?.()
-                      } else {
-                        setCashOpen((v) => !v)
-                      }
+                      if (collapsed) { onToggle?.() } else { setCashOpen((v) => !v) }
                     }}
-                    className={`sidebar-nav-item w-full justify-between ${
-                      collapsed ? 'justify-center px-2' : ''
-                    }`}
+                    className={`sidebar-nav-item w-full justify-between ${collapsed ? 'justify-center px-2' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="w-5 h-5 flex-shrink-0" />
                       {!collapsed && <span>{item.label}</span>}
                     </div>
                     {!collapsed && (
-                      <MdChevronRight
-                        className={`w-4 h-4 flex-shrink-0 transition-transform ${
-                          cashOpen ? 'rotate-90' : ''
-                        }`}
-                      />
+                      <MdChevronRight className={`w-4 h-4 flex-shrink-0 transition-transform ${cashOpen ? 'rotate-90' : ''}`} />
                     )}
                   </button>
                   {cashOpen && !collapsed && (
@@ -182,9 +191,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
                           onClick={mobile ? onClose : undefined}
                           className={({ isActive }) =>
                             `block py-2 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${
-                              isActive
-                                ? 'text-teal bg-teal/10'
-                                : 'text-slate-300 hover:text-white hover:bg-white/5'
+                              isActive ? 'text-teal bg-teal/10' : 'text-slate-300 hover:text-white hover:bg-white/5'
                             }`
                           }
                         >
@@ -204,9 +211,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
                 onClick={mobile ? onClose : undefined}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
-                  `sidebar-nav-item ${
-                    isActive ? 'active' : ''
-                  } ${collapsed ? 'justify-center px-2' : ''}`
+                  `sidebar-nav-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`
                 }
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -217,9 +222,7 @@ export default function Sidebar({ collapsed, onToggle, mobile = false, onClose }
                   </span>
                 )}
                 {collapsed && item.badge && pendingCount > 0 && (
-                  <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-3 h-3 flex items-center justify-center">
-                    !
-                  </span>
+                  <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-3 h-3 flex items-center justify-center">!</span>
                 )}
               </NavLink>
             )

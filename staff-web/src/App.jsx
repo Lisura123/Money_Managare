@@ -23,6 +23,10 @@ import EditWindowPage from './pages/EditWindowPage'
 
 // Pages — admin
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import EntriesPage from './pages/admin/EntriesPage'
+import TransfersPage from './pages/admin/TransfersPage'
+import MorePage from './pages/admin/MorePage'
+import RecordsPage from './pages/admin/RecordsPage'
 import ShowroomsPage from './pages/admin/ShowroomsPage'
 import StaffPage from './pages/admin/StaffPage'
 import CashEntriesAdminPage from './pages/admin/CashEntriesAdminPage'
@@ -132,19 +136,25 @@ function AppRoutes() {
       {/* Protected routes — admin */}
       <Route element={<RequireAdmin />}>
         <Route element={<AppLayout />}>
-          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/admin/showrooms" element={<ShowroomsPage />} />
-          <Route path="/admin/staff" element={<StaffPage />} />
-          <Route path="/admin/cash-entries" element={<CashEntriesAdminPage />} />
-          <Route path="/admin/card-entries" element={<CardEntriesAdminPage />} />
-          <Route path="/admin/edit-requests" element={<EditRequestsAdminPage />} />
+          <Route path="/admin/dashboard"        element={<AdminDashboardPage />} />
+          {/* iOS-style hub pages */}
+          <Route path="/admin/entries"          element={<EntriesPage />} />
+          <Route path="/admin/transfers"        element={<TransfersPage />} />
+          <Route path="/admin/more"             element={<MorePage />} />
+          <Route path="/admin/records"          element={<RecordsPage />} />
+          {/* Direct pages (reachable from sidebar + hub pages) */}
+          <Route path="/admin/showrooms"        element={<ShowroomsPage />} />
+          <Route path="/admin/staff"            element={<StaffPage />} />
+          <Route path="/admin/cash-entries"     element={<CashEntriesAdminPage />} />
+          <Route path="/admin/card-entries"     element={<CardEntriesAdminPage />} />
+          <Route path="/admin/edit-requests"    element={<EditRequestsAdminPage />} />
           <Route path="/admin/self-transactions" element={<SelfTransactionsPage />} />
           <Route path="/admin/cash-transactions" element={<CashTransactionsPage />} />
           <Route path="/admin/cash-adjustments" element={<CashAdjustmentsPage />} />
           <Route path="/admin/card-adjustments" element={<CardAdjustmentsPage />} />
-          <Route path="/admin/reports" element={<ReportsPage />} />
-          <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-          <Route path="/admin/settings" element={<SettingsAdminPage />} />
+          <Route path="/admin/reports"          element={<ReportsPage />} />
+          <Route path="/admin/audit-logs"       element={<AuditLogsPage />} />
+          <Route path="/admin/settings"         element={<SettingsAdminPage />} />
         </Route>
       </Route>
 

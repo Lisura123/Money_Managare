@@ -9,6 +9,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner'
 import { useFetch } from '../../hooks/useFetch'
 import { ENDPOINTS } from '../../utils/constants'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
+import { isFlagshipShowroom, prioritizeShowrooms } from '../../utils/showroomPriority'
 import api from '../../config/api'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -16,56 +17,148 @@ const maskCard = (lastFour) => lastFour ? `••••${lastFour}` : '—'
 const cardLabel = (bankName, lastFour, balance) =>
   `${bankName || 'Unknown'} ${maskCard(lastFour)}${balance !== undefined ? ` (${formatCurrency(balance)})` : ''}`
 
+const FROM_TYPES = [
+  { key: 'mainCash', label: 'Main Cash' },
+  { key: 'showroomCash', label: 'Showroom Cash' },
+  { key: 'card', label: 'Bank' },
+  { key: 'mano', label: 'Mano' },
+]
+const TO_TYPES = [...FROM_TYPES, { key: 'other', label: 'Others' }]
+
 // ─── New Transaction Modal ─────────────────────────────────────────────────────
-function AddModal({ open, onClose, onSaved, cardAccounts, externalAccounts }) {
-  const [fromId, setFromId] = useState('')
-  const [toValue, setToValue] = useState('') // card id, 'ext:{id}', or 'others'
+function AddModal({ open, onClose, onSaved, cardAccounts, externalAccounts, showroomCash }) {
+  const [fromType, setFromType] = useState(null)
+  const [fromShowroomId, setFromShowroomId] = useState('')        // Bank
+  const [fromCardId, setFromCardId] = useState('')                // Bank
+  const [fromCashShowroomId, setFromCashShowroomId] = useState('') // Main / Showroom Cash
+
+  const [toType, setToType] = useState(null)
+  const [toShowroomId, setToShowroomId] = useState('')            // Bank
+  const [toCardId, setToCardId] = useState('')                    // Bank
+  const [toCashShowroomId, setToCashShowroomId] = useState('')    // Main / Showroom Cash
+
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const fromAccount = cardAccounts.find(c => String(c.id) === String(fromId))
-  const toCardAccount = toValue && !toValue.startsWith('ext:') && toValue !== 'others'
-    ? cardAccounts.find(c => String(c.id) === String(toValue))
-    : null
-  const toExternal = toValue?.startsWith('ext:')
-    ? externalAccounts.find(e => String(e.id) === toValue.replace('ext:', ''))
-    : null
-  const isOthers = toValue === 'others'
+  // ── derived data ──
+  const manoAccount = externalAccounts.find(e => e.cash_account_type === 'mano')
+  const cardsForShowroom = (id) => cardAccounts.filter(c => String(c.showroom_id) === String(id) && (c.is_active ?? true))
 
-  const toLabel = toCardAccount
-    ? `${toCardAccount.showroom_name || toCardAccount.showroomName || ''} — ${maskCard(toCardAccount.last_four || toCardAccount.lastFour)}`
-    : toExternal
-    ? `${toExternal.name} — ${formatCurrency(toExternal.balance)}`
-    : isOthers ? 'Others (External)' : ''
+  const cardShowrooms = prioritizeShowrooms(
+    [...new Map(cardAccounts.map(c => [c.showroom_id, { id: c.showroom_id, name: c.showroom_name }])).values()],
+    'name',
+  )
+  const mainCashShowrooms = prioritizeShowrooms(showroomCash.filter(s => isFlagshipShowroom(s.showroom_name)), 'showroom_name')
+  const otherCashShowrooms = prioritizeShowrooms(showroomCash.filter(s => !isFlagshipShowroom(s.showroom_name)), 'showroom_name')
+
+  const fromCardAccount = cardAccounts.find(c => String(c.id) === String(fromCardId))
+  const toCardAccount = cardAccounts.find(c => String(c.id) === String(toCardId))
+  const fromCashItem = showroomCash.find(s => String(s.showroom_id) === String(fromCashShowroomId))
+  const toCashItem = showroomCash.find(s => String(s.showroom_id) === String(toCashShowroomId))
 
   const parsedAmount = parseFloat(amount) || 0
-  const insufficientBalance = fromAccount && parsedAmount > 0 && parsedAmount > (fromAccount.current_balance ?? fromAccount.currentBalance ?? 0)
 
-  const availableToAccounts = cardAccounts.filter(c => String(c.id) !== String(fromId))
+  const fromBalance = (() => {
+    switch (fromType) {
+      case 'card': return fromCardAccount?.current_balance != null ? parseFloat(fromCardAccount.current_balance) : null
+      case 'mano': return manoAccount ? parseFloat(manoAccount.balance) : null
+      case 'mainCash':
+      case 'showroomCash': return fromCashItem ? parseFloat(fromCashItem.balance) : null
+      default: return null
+    }
+  })()
+  const toBalance = (() => {
+    switch (toType) {
+      case 'card': return toCardAccount?.current_balance != null ? parseFloat(toCardAccount.current_balance) : null
+      case 'mano': return manoAccount ? parseFloat(manoAccount.balance) : null
+      case 'mainCash':
+      case 'showroomCash': return toCashItem ? parseFloat(toCashItem.balance) : null
+      default: return null
+    }
+  })()
 
-  const reset = () => { setFromId(''); setToValue(''); setAmount(''); setNotes(''); setShowConfirm(false) }
+  const fromLabel = (() => {
+    switch (fromType) {
+      case 'card': return fromCardAccount ? `${fromCardAccount.bank_name || 'Bank'} ${maskCard(fromCardAccount.last_four)}` : 'Bank'
+      case 'mano': return manoAccount?.name || 'Mano'
+      case 'mainCash':
+      case 'showroomCash': return fromCashItem ? `Cash (${fromCashItem.showroom_name})` : 'Cash'
+      default: return '—'
+    }
+  })()
+  const toLabel = (() => {
+    switch (toType) {
+      case 'card': return toCardAccount ? `${toCardAccount.bank_name || 'Bank'} ${maskCard(toCardAccount.last_four)}` : 'Bank'
+      case 'mano': return manoAccount?.name || 'Mano'
+      case 'mainCash':
+      case 'showroomCash': return toCashItem ? `Cash (${toCashItem.showroom_name})` : 'Cash'
+      case 'other': return 'Others'
+      default: return '—'
+    }
+  })()
 
-  const handleSubmit = async (e) => {
+  const notesRequired = toType === 'other'
+  const insufficientBalance = fromBalance != null && parsedAmount > 0 && parsedAmount > fromBalance
+
+  const saveDisabled =
+    loading || !fromType || !toType || parsedAmount <= 0 ||
+    (fromType === 'card' && !fromCardId) ||
+    ((fromType === 'mainCash' || fromType === 'showroomCash') && !fromCashShowroomId) ||
+    (fromType === 'mano' && !manoAccount) ||
+    (toType === 'card' && !toCardId) ||
+    ((toType === 'mainCash' || toType === 'showroomCash') && !toCashShowroomId) ||
+    (toType === 'mano' && !manoAccount) ||
+    (notesRequired && !notes.trim()) ||
+    insufficientBalance
+
+  const reset = () => {
+    setFromType(null); setFromShowroomId(''); setFromCardId(''); setFromCashShowroomId('')
+    setToType(null); setToShowroomId(''); setToCardId(''); setToCashShowroomId('')
+    setAmount(''); setNotes(''); setShowConfirm(false)
+  }
+
+  const selectFromType = (key) => {
+    setFromType(key); setFromShowroomId(''); setFromCardId(''); setFromCashShowroomId('')
+  }
+  const selectToType = (key) => {
+    setToType(key); setToShowroomId(''); setToCardId(''); setToCashShowroomId('')
+  }
+
+  const handleSubmit = (e) => {
     e.preventDefault()
-    if (!fromId) { toast.error('Select a From account.'); return }
-    if (!toValue) { toast.error('Select a To account.'); return }
-    if (parsedAmount <= 0) { toast.error('Enter a valid amount.'); return }
-    if (insufficientBalance) { toast.error('Insufficient balance in source account.'); return }
+    if (saveDisabled) {
+      if (insufficientBalance) toast.error('Insufficient balance in source account.')
+      else if (notesRequired && !notes.trim()) toast.error('Notes are required for Others.')
+      else toast.error('Please complete the transfer details.')
+      return
+    }
     setShowConfirm(true)
   }
 
   const handleConfirm = async () => {
     setLoading(true)
     try {
-      const payload = {
-        from_card_account_id: Number(fromId),
-        amount: parsedAmount,
+      const payload = { amount: parsedAmount }
+
+      // FROM
+      if (fromType === 'card') payload.from_card_account_id = Number(fromCardId)
+      else if (fromType === 'mano') payload.from_external_account_id = manoAccount?.id
+      else if (fromType === 'mainCash' || fromType === 'showroomCash') {
+        payload.from_account_type = 'main'
+        payload.from_showroom_id = Number(fromCashShowroomId)
       }
-      if (toCardAccount) payload.to_card_account_id = toCardAccount.id
-      if (toExternal) payload.to_external_account_id = toExternal.id
-      // 'others' → no to_card_account_id and no to_external_account_id
+
+      // TO
+      if (toType === 'card') payload.to_card_account_id = Number(toCardId)
+      else if (toType === 'mano') payload.to_external_account_id = manoAccount?.id
+      else if (toType === 'mainCash' || toType === 'showroomCash') {
+        payload.to_account_type = 'main'
+        payload.to_showroom_id = Number(toCashShowroomId)
+      }
+      // 'other' → notes only
+
       if (notes.trim()) payload.notes = notes.trim()
 
       await api.post(ENDPOINTS.SELF_TRANSACTIONS, payload)
@@ -93,14 +186,12 @@ function AddModal({ open, onClose, onSaved, cardAccounts, externalAccounts }) {
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-400">From</p>
-                <p className="text-sm font-semibold text-navy dark:text-white truncate">
-                  {fromAccount ? `${fromAccount.showroom_name || fromAccount.showroomName || ''} — ${maskCard(fromAccount.last_four || fromAccount.lastFour)}` : '—'}
-                </p>
+                <p className="text-sm font-semibold text-navy dark:text-white truncate">{fromLabel}</p>
               </div>
               <MdArrowForward className="w-5 h-5 text-teal flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-400">To</p>
-                <p className="text-sm font-semibold text-navy dark:text-white truncate">{toLabel || '—'}</p>
+                <p className="text-sm font-semibold text-navy dark:text-white truncate">{toLabel}</p>
               </div>
             </div>
             <p className="text-xl font-heading font-bold text-teal">{formatCurrency(parsedAmount)}</p>
@@ -117,47 +208,104 @@ function AddModal({ open, onClose, onSaved, cardAccounts, externalAccounts }) {
     )
   }
 
+  const renderChips = (types, selected, onSelect) => (
+    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {types.map(t => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onSelect(t.key)}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            selected === t.key
+              ? 'bg-navy text-white dark:bg-teal'
+              : 'bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-300'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const renderDetail = (type, { showroomId, setShowroomId, cardId, setCardId, cashShowroomId, setCashShowroomId, cashItem }) => {
+    if (type === 'card') {
+      return (
+        <div className="space-y-2 mt-2">
+          <select className="form-input" value={showroomId} onChange={e => { setShowroomId(e.target.value); setCardId('') }}>
+            <option value="">Select showroom…</option>
+            {cardShowrooms.map(s => (
+              <option key={s.id} value={s.id}>{isFlagshipShowroom(s.name) ? `★ ${s.name}` : s.name}</option>
+            ))}
+          </select>
+          {showroomId && (
+            <select className="form-input" value={cardId} onChange={e => setCardId(e.target.value)}>
+              <option value="">Select account…</option>
+              {cardsForShowroom(showroomId).map(a => (
+                <option key={a.id} value={a.id}>{a.bank_name || 'Bank'} {maskCard(a.last_four)} ({formatCurrency(a.current_balance)})</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )
+    }
+    if (type === 'mano') {
+      return manoAccount ? (
+        <div className="flex items-center justify-between mt-2 px-3 py-2 bg-gray-50 dark:bg-white/5 rounded-lg">
+          <span className="text-sm text-navy dark:text-white">{manoAccount.name}</span>
+          <span className="text-sm font-semibold text-teal">{formatCurrency(manoAccount.balance)}</span>
+        </div>
+      ) : <p className="text-xs text-gray-400 mt-2">No Mano account available.</p>
+    }
+    if (type === 'mainCash' || type === 'showroomCash') {
+      const list = type === 'mainCash' ? mainCashShowrooms : otherCashShowrooms
+      return (
+        <div className="space-y-2 mt-2">
+          <select className="form-input" value={cashShowroomId} onChange={e => setCashShowroomId(e.target.value)}>
+            <option value="">Select showroom…</option>
+            {list.map(s => (
+              <option key={s.showroom_id} value={s.showroom_id}>{isFlagshipShowroom(s.showroom_name) ? `★ ${s.showroom_name}` : s.showroom_name}</option>
+            ))}
+          </select>
+          {cashItem && (
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-white/5 rounded-lg">
+              <span className="text-xs text-gray-400">Cash Balance</span>
+              <span className="text-sm font-semibold text-teal">{formatCurrency(cashItem.balance)}</span>
+            </div>
+          )}
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { reset(); onClose() }} />
-      <div className="relative bg-white dark:bg-navy rounded-xl shadow-2xl p-6 w-full max-w-sm animate-fade-in">
-        <h3 className="font-heading font-semibold text-navy dark:text-white text-base mb-4">New Self Transaction</h3>
-        <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="relative bg-white dark:bg-navy rounded-xl shadow-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto animate-fade-in">
+        <h3 className="font-heading font-semibold text-navy dark:text-white text-base mb-4">New Self Transfer</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* From */}
           <div>
-            <label className="form-label">From Account</label>
-            <select className="form-input" value={fromId} onChange={e => { setFromId(e.target.value); setToValue('') }} required>
-              <option value="">Select account</option>
-              {cardAccounts.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.showroom_name || c.showroomName || ''} — {cardLabel(c.bank_name || c.bankName, c.last_four || c.lastFour, c.current_balance ?? c.currentBalance)}
-                </option>
-              ))}
-            </select>
-            {fromAccount && (
-              <p className="text-xs text-gray-400 mt-1">
-                Balance: <span className="font-medium text-navy dark:text-white">{formatCurrency(fromAccount.current_balance ?? fromAccount.currentBalance ?? 0)}</span>
-              </p>
-            )}
+            <label className="form-label">From</label>
+            {renderChips(FROM_TYPES, fromType, selectFromType)}
+            {renderDetail(fromType, {
+              showroomId: fromShowroomId, setShowroomId: setFromShowroomId,
+              cardId: fromCardId, setCardId: setFromCardId,
+              cashShowroomId: fromCashShowroomId, setCashShowroomId: setFromCashShowroomId,
+              cashItem: fromCashItem,
+            })}
           </div>
 
           {/* To */}
           <div>
-            <label className="form-label">To Account</label>
-            <select className="form-input" value={toValue} onChange={e => setToValue(e.target.value)} required>
-              <option value="">Select account</option>
-              {availableToAccounts.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.showroom_name || c.showroomName || ''} — {cardLabel(c.bank_name || c.bankName, c.last_four || c.lastFour, c.current_balance ?? c.currentBalance)}
-                </option>
-              ))}
-              {externalAccounts.map(e => (
-                <option key={`ext:${e.id}`} value={`ext:${e.id}`}>
-                  {e.name} — {formatCurrency(e.balance)}
-                </option>
-              ))}
-              <option value="others">Others (External)</option>
-            </select>
+            <label className="form-label">To</label>
+            {renderChips(TO_TYPES, toType, selectToType)}
+            {renderDetail(toType, {
+              showroomId: toShowroomId, setShowroomId: setToShowroomId,
+              cardId: toCardId, setCardId: setToCardId,
+              cashShowroomId: toCashShowroomId, setCashShowroomId: setToCashShowroomId,
+              cashItem: toCashItem,
+            })}
           </div>
 
           {/* Amount */}
@@ -170,33 +318,52 @@ function AddModal({ open, onClose, onSaved, cardAccounts, externalAccounts }) {
             />
             {insufficientBalance && (
               <p className="text-xs text-red-500 mt-1">
-                Insufficient balance. Available: {formatCurrency(fromAccount.current_balance ?? fromAccount.currentBalance ?? 0)}
+                Insufficient balance. Available: {formatCurrency(fromBalance)}
               </p>
             )}
           </div>
 
-          {/* Live summary */}
-          {fromId && toValue && parsedAmount > 0 && (
-            <div className="bg-teal/5 border border-teal/20 rounded-xl px-3 py-2 text-xs space-y-1">
-              <p className="font-medium text-gray-600 dark:text-gray-300">Transfer Summary</p>
-              <div className="flex items-center gap-1 text-gray-500">
-                <span className="truncate">{fromAccount ? maskCard(fromAccount.last_four || fromAccount.lastFour) : '—'}</span>
-                <MdArrowForward className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{toLabel || '—'}</span>
+          {/* Notes */}
+          <div>
+            <label className="form-label">{notesRequired ? 'Notes (required)' : 'Notes (optional)'}</label>
+            <input
+              type="text" className="form-input"
+              placeholder={notesRequired ? 'Required for Others' : 'Optional'}
+              value={notes} onChange={e => setNotes(e.target.value)}
+            />
+            {notesRequired && !notes.trim() && (
+              <p className="text-xs text-red-500 mt-1">Notes are required for Others.</p>
+            )}
+          </div>
+
+          {/* Balance preview */}
+          {parsedAmount > 0 && fromBalance != null && (
+            <div className="bg-teal/5 border border-teal/20 rounded-xl px-3 py-2 text-xs space-y-2">
+              <p className="font-medium text-gray-600 dark:text-gray-300">Balance Preview</p>
+              <div>
+                <p className="text-gray-400 truncate">From: {fromLabel}</p>
+                <p className="flex items-center gap-1">
+                  <span className="text-gray-500">{formatCurrency(fromBalance)}</span>
+                  <MdArrowForward className="w-3 h-3 text-gray-400" />
+                  <span className="font-semibold text-error">{formatCurrency(fromBalance - parsedAmount)}</span>
+                </p>
               </div>
-              <p className="font-bold text-teal">{formatCurrency(parsedAmount)}</p>
+              {toBalance != null && (
+                <div>
+                  <p className="text-gray-400 truncate">To: {toLabel}</p>
+                  <p className="flex items-center gap-1">
+                    <span className="text-gray-500">{formatCurrency(toBalance)}</span>
+                    <MdArrowForward className="w-3 h-3 text-gray-400" />
+                    <span className="font-semibold text-success">{formatCurrency(toBalance + parsedAmount)}</span>
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <label className="form-label">Notes (optional)</label>
-            <input type="text" className="form-input" placeholder="Optional" value={notes} onChange={e => setNotes(e.target.value)} />
-          </div>
-
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => { reset(); onClose() }} className="btn-outline flex-1 justify-center">Cancel</button>
-            <button type="submit" disabled={insufficientBalance} className="btn-primary flex-1 justify-center">Review</button>
+            <button type="submit" disabled={saveDisabled} className="btn-primary flex-1 justify-center">Review</button>
           </div>
         </form>
       </div>
@@ -219,6 +386,7 @@ export default function SelfTransactionsPage() {
   const { data, loading, error, refetch } = useFetch(ENDPOINTS.SELF_TRANSACTIONS, params, [page])
   const { data: showroomsData } = useFetch(ENDPOINTS.SHOWROOMS)
   const { data: externalData } = useFetch(ENDPOINTS.EXTERNAL_ACCOUNTS)
+  const { data: showroomCashData } = useFetch(ENDPOINTS.SHOWROOM_CASH_BALANCES)
 
   const transactions = data?.data || []
   const meta = data?.meta || {}
@@ -228,9 +396,10 @@ export default function SelfTransactionsPage() {
   // Flatten card accounts from showrooms
   const showrooms = Array.isArray(showroomsData) ? showroomsData : (showroomsData?.data || [])
   const cardAccounts = showrooms.flatMap(s =>
-    (s.card_accounts || []).map(c => ({ ...c, showroom_name: s.name }))
+    (s.card_accounts || []).map(c => ({ ...c, showroom_name: s.name, showroom_id: s.id }))
   )
   const externalAccounts = Array.isArray(externalData) ? externalData : (externalData?.data || [])
+  const showroomCash = Array.isArray(showroomCashData) ? showroomCashData : (showroomCashData?.data || [])
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -393,6 +562,7 @@ export default function SelfTransactionsPage() {
         onSaved={() => { setShowAdd(false); refetch() }}
         cardAccounts={cardAccounts}
         externalAccounts={externalAccounts}
+        showroomCash={showroomCash}
       />
 
       <ConfirmDialog

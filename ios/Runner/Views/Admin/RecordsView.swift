@@ -281,9 +281,25 @@ struct RecordsView: View {
                 else { ForEach(selfVM.transactions) { t in selectable(t.id) { SelfTxRow(tx: t) } } }
             case .balanceUpdates:
                 if buVM.updates.isEmpty { emptyState }
-                else { ForEach(buVM.updates) { u in selectable(u.id) { BalanceUpdateRow(update: u) } } }
+                else {
+                    ForEach(groupedBalanceUpdates, id: \.showroom) { group in
+                        ShowroomGroupHeader(
+                            name: group.showroom,
+                            count: group.items.count,
+                            net: group.items.reduce(0) { $0 + $1.changeAmount }
+                        )
+                        ForEach(group.items) { u in selectable(u.id) { BalanceUpdateRow(update: u, hideShowroom: true) } }
+                    }
+                }
             }
         }
+    }
+
+    /// Balance updates grouped by showroom (alphabetical), for showroom-wise display.
+    private var groupedBalanceUpdates: [(showroom: String, items: [BalanceUpdate])] {
+        Dictionary(grouping: buVM.updates) { $0.showroomName ?? "Unassigned" }
+            .map { (showroom: $0.key, items: $0.value) }
+            .sorted { $0.showroom < $1.showroom }
     }
 
     /// Wraps a record row with a selection checkbox + tap-to-toggle when in selection mode.
@@ -416,10 +432,58 @@ private struct RecordsStatCard: View {
     }
 }
 
+// MARK: - Showroom Group Header
+
+/// Section header used to display Balance Updates grouped showroom-wise.
+private struct ShowroomGroupHeader: View {
+    let name: String
+    let count: Int
+    let net: Double
+
+    private var isIncrease: Bool { net >= 0 }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "building.2.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.mmPrimary)
+                .frame(width: 28, height: 28)
+                .background(Color.mmPrimary.opacity(0.12))
+                .cornerRadius(8)
+            Text(name)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.mmTextPrimary)
+                .lineLimit(1)
+            Text("\(count)")
+                .font(.system(size: 10, weight: .bold))
+                .padding(.horizontal, 7).padding(.vertical, 2)
+                .background(Color.mmTextSecondary.opacity(0.12))
+                .foregroundStyle(Color.mmTextSecondary)
+                .clipShape(Capsule())
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("Net change")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.mmTextSecondary)
+                Text((isIncrease ? "+" : "") + net.currency)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(isIncrease ? Color.mmSuccess : Color.mmError)
+                    .minimumScaleFactor(0.6).lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.mmCard.opacity(0.6))
+        .cornerRadius(10)
+        .padding(.top, 10).padding(.bottom, 4)
+    }
+}
+
 // MARK: - Balance Update Row
 
 struct BalanceUpdateRow: View {
     let update: BalanceUpdate
+    var hideShowroom: Bool = false
 
     private var isIncrease: Bool { update.changeAmount >= 0 }
     private var changeColor: Color { isIncrease ? Color.mmSuccess : Color.mmError }
@@ -456,7 +520,7 @@ struct BalanceUpdateRow: View {
                             .background(Color.mmPrimary.opacity(0.10))
                             .foregroundStyle(Color.mmPrimary)
                             .cornerRadius(5)
-                        if let s = update.showroomName {
+                        if !hideShowroom, let s = update.showroomName {
                             Text(s)
                                 .font(.system(size: 10))
                                 .foregroundStyle(Color.mmTextSecondary)

@@ -38,7 +38,7 @@ class AdminCashAdjustmentController extends Controller
      */
     public function all(Request $request): JsonResponse
     {
-        $query = AdminCashAdjustment::with(['admin', 'dailyCashEntry'])
+        $query = AdminCashAdjustment::with(['admin', 'dailyCashEntry.showroom'])
             ->orderByDesc('created_at');
 
         if ($request->filled('showroom_id')) {
@@ -56,7 +56,7 @@ class AdminCashAdjustmentController extends Controller
                 $q->whereBetween('entry_date', [$request->from, $request->to]));
         }
 
-        $adjustments = $query->paginate(20);
+        $adjustments = $query->paginate(min((int) $request->input('per_page', 20), 500));
         return AdminCashAdjustmentResource::collection($adjustments)->toResponse(request());
     }
 
@@ -67,8 +67,8 @@ class AdminCashAdjustmentController extends Controller
     public function storeForShowroom(AdminCashAdjustmentRequest $request): JsonResponse
     {
         $cashAccountType = $request->input('cash_account_type', 'main');
-        $showroomId = $request->input('showroom_id')
-            ?? \App\Models\Showroom::orderBy('id')->value('id');
+        $showroomId = $cashAccountType === 'mano' ? null : ($request->input('showroom_id')
+            ?? \App\Models\Showroom::orderBy('id')->value('id'));
 
         $entry = DailyCashEntry::firstOrCreate(
             [
@@ -90,7 +90,7 @@ class AdminCashAdjustmentController extends Controller
             'reason'              => $request->reason,
         ]);
 
-        // Record the change in the Balance Updates log (main cash only).
+        // Record the change in the Balance Updates log.
         if ($cashAccountType === 'main') {
             $previous = $this->mainCashBalance($showroomId) - (float) $request->adjusted_amount;
             $new      = $previous + (float) $request->adjusted_amount;
@@ -99,6 +99,20 @@ class AdminCashAdjustmentController extends Controller
                 'account_type'    => 'main_cash',
                 'card_account_id' => null,
                 'account_label'   => 'Main Cash',
+                'previous_amount' => round($previous, 2),
+                'new_amount'      => round($new, 2),
+                'change_amount'   => round((float) $request->adjusted_amount, 2),
+                'reason'          => $request->reason,
+                'user_id'         => $request->user()->id,
+            ]);
+        } elseif ($cashAccountType === 'mano') {
+            $previous = $this->manoCashBalance() - (float) $request->adjusted_amount;
+            $new      = $previous + (float) $request->adjusted_amount;
+            BalanceUpdate::create([
+                'showroom_id'     => null,
+                'account_type'    => 'mano_cash',
+                'card_account_id' => null,
+                'account_label'   => "Mano's Account",
                 'previous_amount' => round($previous, 2),
                 'new_amount'      => round($new, 2),
                 'change_amount'   => round((float) $request->adjusted_amount, 2),
@@ -130,6 +144,27 @@ class AdminCashAdjustmentController extends Controller
             ->where('from_showroom_id', $showroomId)->sum('amount');
         $selfIn  = (float) SelfTransaction::where('to_account_type', 'main')
             ->where('to_showroom_id', $showroomId)->sum('amount');
+
+        return $entries + $adj - $selfOut + $selfIn;
+    }
+
+    /**
+     * Live computed mano cash balance.
+     */
+    private function manoCashBalance(): float
+    {
+        $entries = (float) DailyCashEntry::where('cash_account_type', 'mano')
+            ->sum('cash_amount');
+
+        $adj = (float) DB::table('admin_cash_adjustments')
+            ->join('daily_cash_entries', 'admin_cash_adjustments.daily_cash_entry_id', '=', 'daily_cash_entries.id')
+            ->where('daily_cash_entries.cash_account_type', 'mano')
+            ->sum('admin_cash_adjustments.adjusted_amount');
+
+        $manoExtIds = \App\Models\ExternalAccount::where('cash_account_type', 'mano')->pluck('id')->all();
+
+        $selfOut = (float) SelfTransaction::whereIn('from_external_account_id', $manoExtIds)->sum('amount');
+        $selfIn  = (float) SelfTransaction::whereIn('to_external_account_id', $manoExtIds)->sum('amount');
 
         return $entries + $adj - $selfOut + $selfIn;
     }

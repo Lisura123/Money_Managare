@@ -8,6 +8,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
     let adjustedAmount: Double
     let reason: String?
     let cashAccountType: String?
+    let showroomName: String?
     let createdAt: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -19,6 +20,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
         case adjustedAmount   = "adjusted_amount"
         case reason
         case cashAccountType  = "cash_account_type"
+        case showroomName     = "showroom_name"
         case createdAt        = "created_at"
     }
 
@@ -32,6 +34,7 @@ struct AdminCashAdjustment: Decodable, Identifiable {
         createdAt = try? c.decode(String.self, forKey: .createdAt)
         adminName = (try? c.decode(NameNested.self, forKey: .admin))?.name
         cashAccountType = try? c.decode(String.self, forKey: .cashAccountType)
+        showroomName = try? c.decode(String.self, forKey: .showroomName)
 
         cashEntryId = (try? c.decode(Int.self, forKey: .cashEntryId))
             ?? (try? c.decode(Int.self, forKey: .dailyCashEntryId)) ?? 0
@@ -51,6 +54,7 @@ struct AdminCardAdjustment: Decodable, Identifiable {
     let createdAt: String?
     let bankName: String?
     let lastFour: String?
+    let showroomName: String?
 
     var accountLabel: String {
         if let b = bankName, let l = lastFour { return "\(b) •••• \(l)" }
@@ -68,6 +72,7 @@ struct AdminCardAdjustment: Decodable, Identifiable {
         case createdAt        = "created_at"
         case bankName         = "bank_name"
         case lastFour         = "last_four"
+        case showroomName     = "showroom_name"
     }
 
     private struct NameNested: Decodable { let name: String }
@@ -81,6 +86,7 @@ struct AdminCardAdjustment: Decodable, Identifiable {
         adminName = (try? c.decode(NameNested.self, forKey: .admin))?.name
         bankName  = try? c.decode(String.self, forKey: .bankName)
         lastFour  = try? c.decode(String.self, forKey: .lastFour)
+        showroomName = try? c.decode(String.self, forKey: .showroomName)
 
         cardEntryId = (try? c.decode(Int.self, forKey: .cardEntryId))
             ?? (try? c.decode(Int.self, forKey: .dailyCardEntryId)) ?? 0

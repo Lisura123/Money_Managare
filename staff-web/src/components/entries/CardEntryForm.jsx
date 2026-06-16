@@ -1,15 +1,25 @@
 import { useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
-import { MdCreditCard, MdNotes } from 'react-icons/md'
+import { MdCreditCard, MdNotes, MdStore } from 'react-icons/md'
 import api from '../../config/api'
+import { useAuth } from '../../hooks/useAuth'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { formatCurrency, getDayName, maskCard, todayString } from '../../utils/formatters'
 import { validateCardEntry } from '../../utils/validators'
+import { prioritizeShowrooms } from '../../utils/showroomPriority'
 import LoadingSpinner from '../common/LoadingSpinner'
 
 export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
+  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [rawAmount, setRawAmount] = useState('')
+
+  // Showrooms assigned to this staff member (multi-showroom support).
+  const assignedShowrooms = prioritizeShowrooms(user?.showrooms || [], 'name')
+  const hasMultipleShowrooms = assignedShowrooms.length > 1
+  const [showroomId, setShowroomId] = useState(
+    hasMultipleShowrooms ? '' : String(assignedShowrooms[0]?.id ?? user?.showroom_id ?? ''),
+  )
 
   const { values, errors, handleChange, setValue, setFieldErrors, runValidation } =
     useFormValidation(
@@ -26,14 +36,33 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
     [setValue],
   )
 
-  const selectedCard = cardAccounts.find(
+  // When multiple showrooms are assigned, only show accounts for the selected one.
+  const visibleAccounts = hasMultipleShowrooms
+    ? cardAccounts.filter((c) => String(c.showroom_id) === String(showroomId))
+    : cardAccounts
+
+  const selectedCard = visibleAccounts.find(
     (c) => String(c.id) === String(values.card_account_id),
+  )
+
+  const handleShowroomChange = useCallback(
+    (e) => {
+      setShowroomId(e.target.value)
+      // Reset the chosen card account — it may belong to a different showroom.
+      setValue('card_account_id', '')
+    },
+    [setValue],
   )
 
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault()
       if (!runValidation()) return
+
+      if (hasMultipleShowrooms && !showroomId) {
+        toast.error('Please select a showroom before submitting.')
+        return
+      }
 
       const amount = parseFloat(values.amount)
       if (amount >= 1_000_000) {
@@ -50,6 +79,7 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
           entry_date: values.entry_date,
           amount: amount,
           notes: values.notes || null,
+          ...(showroomId ? { showroom_id: Number(showroomId) } : {}),
         })
         toast.success('Bank entry submitted successfully!')
         onSuccess?.()
@@ -71,7 +101,7 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
         setSubmitting(false)
       }
     },
-    [values, runValidation, setFieldErrors, onSuccess],
+    [values, runValidation, setFieldErrors, onSuccess, hasMultipleShowrooms, showroomId],
   )
 
   const dayName = getDayName(values.entry_date)
@@ -81,6 +111,32 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      {/* Showroom selector — shown only for multi-showroom staff */}
+      {hasMultipleShowrooms && (
+        <div>
+          <label htmlFor="showroom_id" className="form-label">
+            <MdStore className="inline w-4 h-4 mr-1 mb-0.5" />
+            Showroom
+          </label>
+          <select
+            id="showroom_id"
+            value={showroomId}
+            onChange={handleShowroomChange}
+            className={`form-input ${!showroomId ? 'border-error focus:ring-error' : ''}`}
+          >
+            <option value="">Select a showroom…</option>
+            {assignedShowrooms.map((sr) => (
+              <option key={sr.id} value={sr.id}>
+                {sr.name}
+              </option>
+            ))}
+          </select>
+          {!showroomId && (
+            <p className="form-error">Select a showroom before adding an entry.</p>
+          )}
+        </div>
+      )}
+
       {/* Card account selector — visual grid on desktop */}
       <div>
         <label className="form-label">
@@ -88,7 +144,11 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
           Select Card Account
         </label>
 
-        {cardAccounts.length === 0 ? (
+        {hasMultipleShowrooms && !showroomId ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
+            Select a showroom to view its card accounts.
+          </p>
+        ) : visibleAccounts.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
             No card accounts found for your showroom.
           </p>
@@ -96,7 +156,7 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
           <>
             {/* Desktop: grid of selectable cards */}
             <div className="hidden sm:grid grid-cols-2 gap-3 mt-1">
-              {cardAccounts.map((card) => {
+              {visibleAccounts.map((card) => {
                 const isSelected = String(values.card_account_id) === String(card.id)
                 return (
                   <button
@@ -140,7 +200,7 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
               onChange={(e) => setValue('card_account_id', e.target.value)}
             >
               <option value="">Select a card account…</option>
-              {cardAccounts.map((card) => (
+              {visibleAccounts.map((card) => (
                 <option key={card.id} value={card.id}>
                   {card.bank_name} — {maskCard(card.last_four)} (
                   {formatCurrency(card.current_balance)})
@@ -230,8 +290,8 @@ export default function CardEntryForm({ cardAccounts = [], onSuccess }) {
 
       <button
         type="submit"
-        disabled={submitting}
-        className="btn-primary w-full py-3 text-base justify-center"
+        disabled={submitting || (hasMultipleShowrooms && !showroomId)}
+        className="btn-primary w-full py-3 text-base justify-center disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? <LoadingSpinner size="sm" /> : 'Submit Entry'}
       </button>

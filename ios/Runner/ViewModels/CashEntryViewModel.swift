@@ -75,14 +75,14 @@ final class CashEntryViewModel: ObservableObject {
 
     // MARK: - Submit (staff)
 
-    func submit(showroomId: Int, cashAmount: Double, notes: String?,
+    func submit(showroomId: Int?, cashAmount: Double, notes: String?,
                 cashAccountType: String, entryDate: String? = nil) async throws {
         isSubmitting = true; defer { isSubmitting = false }
         var body: [String: Any] = [
-            "showroom_id": showroomId,
             "cash_amount": cashAmount,
             "cash_account_type": cashAccountType
         ]
+        if let s = showroomId { body["showroom_id"] = s }
         if let n = notes, !n.isEmpty { body["notes"] = n }
         if let d = entryDate { body["entry_date"] = d }
         let _: DailyCashEntry = try await api.post("/cash-entries", body: body)

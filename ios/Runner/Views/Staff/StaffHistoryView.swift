@@ -278,32 +278,50 @@ struct CashEntryRow: View {
 
     var body: some View {
         RowCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.entryDate.displayDate)
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.mmTextPrimary)
-                    Text(entry.cashAccountLabel)
-                        .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    if let n = entry.notes {
-                        Text(n).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(entry.cashAmount.currency)
-                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
-                    if entry.isLocked {
-                        Label("Locked", systemImage: "lock.fill")
-                            .font(.system(size: 10)).foregroundStyle(Color.mmWarning)
-                    } else if let action = onEditRequest {
-                        Button {
-                            action()
-                        } label: {
-                            Label("Edit Request", systemImage: "pencil.circle")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color.mmAccent)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Date + submitted time
+                        HStack(spacing: 6) {
+                            Text(entry.entryDate.displayDate)
+                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.mmTextPrimary)
+                            if let t = entry.createdAt?.displayTime, !t.isEmpty {
+                                Text("• \(t)").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            }
                         }
-                        .buttonStyle(.plain)
+                        // Showroom
+                        if let sr = entry.showroomName {
+                            Text(sr).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                        // Account type badge
+                        let isMano = entry.cashAccountType == "mano"
+                        Text(isMano ? "Mano's Account" : "Main Account")
+                            .font(.system(size: 10, weight: .medium))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(isMano ? Color.blue.opacity(0.12) : Color.mmAccent.opacity(0.12))
+                            .foregroundStyle(isMano ? Color.blue : Color.mmAccent)
+                            .cornerRadius(4)
+                        // Notes
+                        if let n = entry.notes, !n.isEmpty {
+                            Label(n, systemImage: "text.bubble")
+                                .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(entry.cashAmount.currency)
+                            .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                        if entry.isLocked {
+                            Label("Locked", systemImage: "lock.fill")
+                                .font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+                        } else if let action = onEditRequest {
+                            Button { action() } label: {
+                                Label("Edit Request", systemImage: "pencil.circle")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.mmAccent)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -319,32 +337,45 @@ struct CardEntryRow: View {
 
     var body: some View {
         RowCard {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.entryDate.displayDate)
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.mmTextPrimary)
-                    Text(entry.displayCard)
-                        .font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    if let n = entry.notes {
-                        Text(n).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    }
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(entry.amount.currency)
-                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
-                    if entry.isLocked {
-                        Label("Locked", systemImage: "lock.fill")
-                            .font(.system(size: 10)).foregroundStyle(Color.mmWarning)
-                    } else if let action = onEditRequest {
-                        Button {
-                            action()
-                        } label: {
-                            Label("Edit Request", systemImage: "pencil.circle")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color.mmAccent)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        // Date + submitted time
+                        HStack(spacing: 6) {
+                            Text(entry.entryDate.displayDate)
+                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.mmTextPrimary)
+                            if let t = entry.createdAt?.displayTime, !t.isEmpty {
+                                Text("• \(t)").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            }
                         }
-                        .buttonStyle(.plain)
+                        // Showroom
+                        if let sr = entry.showroomName {
+                            Text(sr).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                        // Card account
+                        Text(entry.displayCard)
+                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.mmTextSecondary)
+                        // Notes
+                        if let n = entry.notes, !n.isEmpty {
+                            Label(n, systemImage: "text.bubble")
+                                .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(entry.amount.currency)
+                            .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.mmPrimary)
+                        if entry.isLocked {
+                            Label("Locked", systemImage: "lock.fill")
+                                .font(.system(size: 10)).foregroundStyle(Color.mmWarning)
+                        } else if let action = onEditRequest {
+                            Button { action() } label: {
+                                Label("Edit Request", systemImage: "pencil.circle")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.mmAccent)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }

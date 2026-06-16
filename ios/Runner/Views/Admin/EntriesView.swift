@@ -732,6 +732,9 @@ struct CashAdjRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(adj.cashAccountType == "mano" ? "Mano Cash" : "Main Cash")
                         .font(.system(size: 14, weight: .semibold))
+                    if let s = adj.showroomName, !s.isEmpty {
+                        Label(s, systemImage: "building.2").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    }
                     if let r = adj.reason, !r.isEmpty {
                         Text(r).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
                     }
@@ -1003,6 +1006,9 @@ struct CardAdjRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(adj.accountLabel).font(.system(size: 14, weight: .semibold))
+                    if let s = adj.showroomName, !s.isEmpty {
+                        Label(s, systemImage: "building.2").font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                    }
                     Text(adj.reason ?? "").font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
                     HStack(spacing: 6) {
                         if let a = adj.adminName, !a.isEmpty {
@@ -1173,20 +1179,22 @@ struct AdminAddCashEntryView: View {
                     }
 
                     // Showroom picker
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Showroom", systemImage: "building.2")
-                            .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
-                        Picker("Showroom", selection: $selectedShowroomId) {
-                            Text("Select showroom…").tag(Optional<Int>.none)
-                            ForEach(showrooms.prioritized()) { s in
-                                ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
+                    if selectedAccount != "mano" {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Showroom", systemImage: "building.2")
+                                .font(.system(size: 13, weight: .medium)).foregroundStyle(Color.mmTextSecondary)
+                            Picker("Showroom", selection: $selectedShowroomId) {
+                                Text("Select showroom…").tag(Optional<Int>.none)
+                                ForEach(showrooms.prioritized()) { s in
+                                    ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
+                                }
                             }
+                            .pickerStyle(.menu)
+                            .padding(12).background(Color.mmInputFill).cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
                         }
-                        .pickerStyle(.menu)
-                        .padding(12).background(Color.mmInputFill).cornerRadius(10)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mmDivider))
+                        .padding(16).background(Color.mmCard).cornerRadius(14)
                     }
-                    .padding(16).background(Color.mmCard).cornerRadius(14)
 
                     // Entry date
                     VStack(alignment: .leading, spacing: 8) {
@@ -1220,7 +1228,7 @@ struct AdminAddCashEntryView: View {
                         if m >= Self.largeThreshold || n >= Self.largeThreshold { showLargeAmountConfirm = true }
                         else { Task { await submit() } }
                     }
-                    .disabled(selectedShowroomId == nil)
+                    .disabled(selectedAccount != "mano" && selectedShowroomId == nil)
                 }
                 .padding(20)
             }
@@ -1252,20 +1260,26 @@ struct AdminAddCashEntryView: View {
     }
 
     private func submit() async {
-        guard let sId = selectedShowroomId else { error = "Select a showroom."; return }
+        let isMano = selectedAccount == "mano"
+        if !isMano && selectedShowroomId == nil {
+            error = "Select a showroom."
+            return
+        }
         let mainAmt = Double(mainAmount) ?? -1
         let manoAmt = Double(manoAmount) ?? -1
-        guard mainAmt >= 0 || manoAmt >= 0 else { error = "Enter at least one valid amount."; return }
+        guard (isMano ? manoAmt : mainAmt) >= 0 else {
+            error = "Enter a valid amount."
+            return
+        }
         let dateStr: String = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: entryDate) }()
         error = nil
         do {
-            if mainAmt >= 0 {
-                try await vm.submit(showroomId: sId, cashAmount: mainAmt,
+            if !isMano {
+                try await vm.submit(showroomId: selectedShowroomId, cashAmount: mainAmt,
                                     notes: mainNotes.isEmpty ? nil : mainNotes,
                                     cashAccountType: "main", entryDate: dateStr)
-            }
-            if manoAmt >= 0 {
-                try await vm.submit(showroomId: sId, cashAmount: manoAmt,
+            } else {
+                try await vm.submit(showroomId: nil, cashAmount: manoAmt,
                                     notes: manoNotes.isEmpty ? nil : manoNotes,
                                     cashAccountType: "mano", entryDate: dateStr)
             }

@@ -134,7 +134,11 @@ struct StaffRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(user.name).font(.system(size: 15, weight: .medium))
                     Text(user.email).font(.system(size: 12)).foregroundStyle(Color.mmTextSecondary)
-                    if let sn = user.showroomName {
+                    if !user.showrooms.isEmpty {
+                        Text(user.showrooms.map(\.name).joined(separator: ", "))
+                            .font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
+                            .lineLimit(2)
+                    } else if let sn = user.showroomName {
                         Text(sn).font(.system(size: 11)).foregroundStyle(Color.mmTextSecondary)
                     }
                 }
@@ -166,7 +170,7 @@ struct StaffFormView: View {
     @State private var password = ""
     @State private var showPassword = false
     @State private var role = "staff"
-    @State private var selectedShowroomId: Int?
+    @State private var selectedShowroomIds: Set<Int> = []
     @State private var isActive = true
     @State private var error: String?
 
@@ -205,13 +209,35 @@ struct StaffFormView: View {
                     Picker("Role", selection: $role) {
                         ForEach(roles, id: \.self) { Text($0.capitalized).tag($0) }
                     }
-                    Picker("Showroom", selection: $selectedShowroomId) {
-                        Text("None").tag(Optional<Int>.none)
-                        ForEach(showroomVM.showrooms.prioritized()) { s in
-                            ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship).tag(Optional(s.id))
-                        }
-                    }
                     Toggle("Active", isOn: $isActive)
+                }
+                if role == "staff" {
+                    Section {
+                        ForEach(showroomVM.showrooms.prioritized()) { s in
+                            Button {
+                                if selectedShowroomIds.contains(s.id) {
+                                    selectedShowroomIds.remove(s.id)
+                                } else {
+                                    selectedShowroomIds.insert(s.id)
+                                }
+                            } label: {
+                                HStack {
+                                    ShowroomOptionLabel(name: s.name, isFlagship: s.isFlagship)
+                                    Spacer()
+                                    if selectedShowroomIds.contains(s.id) {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.mmPrimary)
+                                            .font(.system(size: 14, weight: .semibold))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        Text("Showrooms")
+                    } footer: {
+                        Text("Select one or more showrooms. Staff assigned to multiple showrooms must choose one before adding an entry.")
+                    }
                 }
                 if let e = error {
                     Section { Text(e).foregroundStyle(Color.mmError).font(.system(size: 13)) }
@@ -229,7 +255,9 @@ struct StaffFormView: View {
             .onAppear {
                 if let u = existing {
                     name = u.name; email = u.email
-                    role = u.role; selectedShowroomId = u.showroomId; isActive = u.isActive
+                    role = u.role; isActive = u.isActive
+                    let ids = u.showroomIds.isEmpty ? [u.showroomId].compactMap { $0 } : u.showroomIds
+                    selectedShowroomIds = Set(ids)
                 }
             }
             .task { await showroomVM.fetchAll() }
@@ -237,27 +265,28 @@ struct StaffFormView: View {
     }
 
     private func save() async {
-        if !isEditing && selectedShowroomId == nil {
-            error = "Showroom is required."; return
+        if role == "staff" && selectedShowroomIds.isEmpty {
+            error = "Select at least one showroom."; return
         }
+        let showroomIds = Array(selectedShowroomIds)
         do {
             if let u = existing {
                 // Handle role change
                 if role != u.role {
-                    if role == "staff" && selectedShowroomId == nil {
+                    if role == "staff" && showroomIds.isEmpty {
                         error = "Select a showroom for staff role."; return
                     }
                     try await vm.changeRole(userId: u.id, newRole: role,
-                                            showroomId: role == "staff" ? selectedShowroomId : nil)
+                                            showroomId: role == "staff" ? showroomIds.first : nil)
                 }
                 if role == "staff" {
                     try await vm.update(u.id, name: name, email: email, role: role,
-                                        showroomId: selectedShowroomId, isActive: isActive,
+                                        showroomIds: showroomIds, isActive: isActive,
                                         password: password.isEmpty ? nil : password)
                 }
             } else {
                 try await vm.create(name: name, email: email, password: password,
-                                    role: "staff", showroomId: selectedShowroomId, isActive: isActive)
+                                    role: "staff", showroomIds: showroomIds, isActive: isActive)
             }
             await onSave(); dismiss()
         } catch { self.error = error.localizedDescription }

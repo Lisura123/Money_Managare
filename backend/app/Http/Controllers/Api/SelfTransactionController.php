@@ -30,7 +30,7 @@ class SelfTransactionController extends Controller
             ]);
         }
 
-        $transactions = $query->paginate(20);
+        $transactions = $query->paginate(min((int) $request->input('per_page', 20), 500));
 
         return response()->json($transactions);
     }

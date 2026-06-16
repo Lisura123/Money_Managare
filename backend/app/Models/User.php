@@ -48,6 +48,11 @@ class User extends Authenticatable
         return $this->belongsTo(Showroom::class);
     }
 
+    public function showrooms()
+    {
+        return $this->belongsToMany(Showroom::class)->withTimestamps();
+    }
+
     public function dailyCashEntries()
     {
         return $this->hasMany(DailyCashEntry::class);

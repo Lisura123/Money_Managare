@@ -33,87 +33,100 @@ use Illuminate\Support\Facades\DB;
  */
 class LiveShowroomSeeder extends Seeder
 {
-    /** Date used for the seeded opening-balance cash entries. */
+    /** Snapshot dates: opening balances (set 1), then updated balances (set 2 / current). */
     private const OPENING_DATE = '2026-06-11';
+    private const UPDATE_DATE  = '2026-06-15';
 
     public function run(): void
     {
-        // showroom => ['main_cash' => float, 'accounts' => [[bank, last_four, balance], ...]]
+        // showroom => [
+        //   'main_open' => float (Main Cash on OPENING_DATE),
+        //   'main_now'  => float (Main Cash on UPDATE_DATE / current),
+        //   'accounts'  => [[bank, last_four, open_balance, now_balance], ...],
+        // ]
         $data = [
             'CAMERALK (PVT) LTD' => [
-                'main_cash' => 3221695.00,
+                'main_open' => 3221695.00,
+                'main_now'  => 5664300.00,
                 'accounts'  => [
-                    ['Sampath', '3205', 448719.17],
-                    ['HNB', '5456', -6600661.97],
-                    ['HNB', '2568', 18827.39],
-                    ['Peoples Bank', '3109', 69433.37],
-                    ['Union Bank (USD)', '1071', 403394.95],
-                    ['Union Bank (LKR)', '4808', 47936.00],
-                    ['NTB', '3370', 158186.41],
-                    ['Sampath', '7954', 97030.09],
-                    ['Sampath', '7946', 590446.06],
-                    ['HNB', '9453', 1360458.44],
-                    ['HNB', '5294', 960000.00],
-                    ['Sampath', '7461', 241589.27],
+                    ['Sampath', '3205', 448719.17, 2343324.17],
+                    ['HNB', '5456', -6600661.97, 3076733.50],
+                    ['HNB', '2568', 18827.39, 18827.39],
+                    ['Peoples Bank', '3109', 69433.37, 69433.37],
+                    ['Union Bank (USD)', '1071', 403394.95, 403394.95],
+                    ['Union Bank (LKR)', '4808', 47936.00, 47936.00],
+                    ['NTB', '3370', 158186.41, 158186.41],
+                    ['Sampath', '7954', 97030.09, 97030.09],
+                    ['Sampath', '7946', 590446.06, 1006946.06],
+                    ['HNB', '9453', 1360458.44, 1360458.44],
+                    ['HNB', '5294', 960000.00, 960000.00],
+                    ['Sampath', '7461', 241589.27, 241589.27],
                 ],
             ],
             'SONY ASIA PASIFIC (PVT) LTD' => [
-                'main_cash' => 5111300.00,
+                'main_open' => 5111300.00,
+                'main_now'  => 9681095.00,
                 'accounts'  => [
-                    ['Sampath', '3206', 1515191.41],
-                    ['Commercial', '0538', 2768182.64],
-                    ['HNB', '8553', 19650.00],
-                    ['NTB', '2464', 124874.15],
-                    ['Sampath', '1244', 411406.75],
-                    ['Sampath', '9574', 1184022.07],
+                    ['Sampath', '3206', 1515191.41, 2367711.41],
+                    ['Commercial', '0538', 2768182.64, 2338682.64],
+                    ['HNB', '8553', 19650.00, 19650.00],
+                    ['NTB', '2464', 124874.15, 124874.15],
+                    ['Sampath', '1244', 411406.75, 1482906.75],
+                    ['Sampath', '9574', 1184022.07, 774922.07],
                 ],
             ],
             'KOSMISCH GLOBAL (PVT) LTD' => [
-                'main_cash' => 163500.00,
+                'main_open' => 163500.00,
+                'main_now'  => 1667600.00,
                 'accounts'  => [
-                    ['Sampath', '9258', 23703.00],
-                    ['Sampath', '4779', 20018.35],
-                    ['Sampath', '0429', 1923762.09],
-                    ['NTB', '4062', 166063.03],
-                    ['HNB', '8696', 25000.00],
+                    ['Sampath', '9258', 23703.00, 23703.00],
+                    ['Sampath', '4779', 20018.35, 20018.35],
+                    ['Sampath', '0429', 1923762.09, 3513122.09],
+                    ['NTB', '4062', 166063.03, 577463.03],
+                    ['HNB', '8696', 25000.00, 25000.00],
                 ],
             ],
             'CLK KANDY (PVT) LTD' => [
-                'main_cash' => 1354400.00,
+                'main_open' => 1354400.00,
+                'main_now'  => 1206700.00,
                 'accounts'  => [
-                    ['DFCC', '9037', 1013456.26],
-                    ['HNB', '8571', 19300.00],
-                    ['NTB', '2488', 58780.15],
-                    ['DFCC', '2427', 24775.27],
+                    ['DFCC', '9037', 1013456.26, 2766976.26],
+                    ['HNB', '8571', 19300.00, 19300.00],
+                    ['NTB', '2488', 58780.15, 257180.15],
+                    ['DFCC', '2427', 24775.27, 24775.27],
                 ],
             ],
             'CAMERA DOT LK (PVT) LTD' => [
-                'main_cash' => 107300.00,
+                'main_open' => 107300.00,
+                'main_now'  => 301100.00,
                 'accounts'  => [
-                    ['Pan Asia Bank', '0810', 421496.64],
-                    ['NTB', '2419', 15931.95],
-                    ['Pan Asia Bank', '3104', 32724.24],
+                    ['Pan Asia Bank', '0810', 421496.64, 620046.64],
+                    ['NTB', '2419', 15931.95, 15931.95],
+                    ['Pan Asia Bank', '3104', 32724.24, 32724.24],
                 ],
             ],
             'CLK PHOTOGRAPHY (PVT) LTD' => [
-                'main_cash' => 268300.00,
+                'main_open' => 268300.00,
+                'main_now'  => 1433500.00,
                 'accounts'  => [
-                    ['Sampath', '9876', 214463.16],
-                    ['NTB', '3751', 74545.00],
+                    ['Sampath', '9876', 214463.16, 725963.16],
+                    ['NTB', '3751', 74545.00, 74545.00],
                 ],
             ],
             'NM CREATION' => [
-                'main_cash' => 110900.00,
+                'main_open' => 110900.00,
+                'main_now'  => 315300.00,
                 'accounts'  => [
-                    ['Sampath', '0135', 314022.36],
-                    ['NTB', '3942', 165683.00],
+                    ['Sampath', '0135', 314022.36, 391822.36],
+                    ['NTB', '3942', 165683.00, 165683.00],
                 ],
             ],
             'MAGNUS INTERNATIONAL (PVT) LTD' => [
-                'main_cash' => 0.00,
+                'main_open' => 0.00,
+                'main_now'  => 0.00,
                 'accounts'  => [
-                    ['Sampath', '9663', 538607.40],
-                    ['Sampath', '9566', 438194.79],
+                    ['Sampath', '9663', 538607.40, 537527.40],
+                    ['Sampath', '9566', 438194.79, 220944.79],
                 ],
             ],
         ];
@@ -153,7 +166,7 @@ class LiveShowroomSeeder extends Seeder
                     ->whereNotIn('last_four', $wantedLastFours)
                     ->update(['is_active' => false]);
 
-                foreach ($accounts as [$bankName, $lastFour, $balance]) {
+                foreach ($accounts as [$bankName, $lastFour, $openBal, $nowBal]) {
                     CardAccount::updateOrCreate(
                         [
                             'showroom_id' => $showroom->id,
@@ -161,100 +174,129 @@ class LiveShowroomSeeder extends Seeder
                             'last_four'   => $lastFour,
                         ],
                         [
-                            'current_balance'      => $balance,
-                            'opening_balance'      => $balance,
+                            'current_balance'      => $nowBal,
+                            'opening_balance'      => $nowBal,
                             'opening_balance_date' => self::OPENING_DATE,
                             'is_active'            => true,
                         ],
                     );
 
-                    // Record card opening balance in Balance Updates so it
-                    // appears under Records → Balance Updates on OPENING_DATE.
-                    if ($openingUserId !== null && $balance != 0) {
-                        $cardId = CardAccount::where('showroom_id', $showroom->id)
-                            ->where('bank_name', $bankName)
-                            ->where('last_four', $lastFour)
-                            ->value('id');
-                        $label = trim($bankName . ' •••• ' . $lastFour);
-                        $existing = DB::table('balance_updates')
-                            ->where('showroom_id', $showroom->id)
-                            ->where('account_type', 'bank')
-                            ->where('account_label', $label)
-                            ->where('reason', 'Opening balance')
-                            ->first();
-                        $buData = [
-                            'showroom_id'     => $showroom->id,
-                            'account_type'    => 'bank',
-                            'card_account_id' => $cardId,
-                            'account_label'   => $label,
-                            'previous_amount' => 0,
-                            'new_amount'      => $balance,
-                            'change_amount'   => $balance,
-                            'reason'          => 'Opening balance',
-                            'user_id'         => $openingUserId,
-                            'created_at'      => self::OPENING_DATE . ' 00:00:00',
-                            'updated_at'      => self::OPENING_DATE . ' 00:00:00',
-                        ];
-                        if ($existing) {
-                            DB::table('balance_updates')->where('id', $existing->id)->update($buData);
-                        } else {
-                            DB::table('balance_updates')->insert($buData);
-                        }
+                    if ($openingUserId === null) {
+                        continue;
                     }
+
+                    $cardId = CardAccount::where('showroom_id', $showroom->id)
+                        ->where('bank_name', $bankName)
+                        ->where('last_four', $lastFour)
+                        ->value('id');
+                    $label = trim($bankName . ' •••• ' . $lastFour);
+
+                    // Snapshot 1 — opening balance on OPENING_DATE.
+                    $this->recordBalanceUpdate(
+                        $showroom->id, 'bank', $cardId, $label,
+                        0, $openBal, 'Opening balance', self::OPENING_DATE, $openingUserId,
+                    );
+                    // Snapshot 2 — updated balance on UPDATE_DATE.
+                    $this->recordBalanceUpdate(
+                        $showroom->id, 'bank', $cardId, $label,
+                        $openBal, $nowBal, 'Balance update', self::UPDATE_DATE, $openingUserId,
+                    );
                 }
 
-                // 3. Seed the main-cash opening balance as one locked entry.
-                // Remove any previously-seeded opening entry (old date) to avoid
-                // duplicate rows when OPENING_DATE is changed.
+                // 3. Seed Main Cash as computed daily_cash_entries + ledger rows.
                 if ($openingUserId !== null) {
+                    $mainOpen  = $config['main_open'];
+                    $mainNow   = $config['main_now'];
+                    $mainDelta = round($mainNow - $mainOpen, 2);
+
+                    // Remove any stale seeded main-cash entries on other dates.
                     DailyCashEntry::where('showroom_id', $showroom->id)
                         ->where('cash_account_type', 'main')
-                        ->where('notes', 'Opening balance')
-                        ->where('entry_date', '!=', self::OPENING_DATE)
+                        ->whereIn('notes', ['Opening balance', 'Balance update'])
+                        ->whereNotIn('entry_date', [self::OPENING_DATE, self::UPDATE_DATE])
                         ->delete();
 
-                    DailyCashEntry::updateOrCreate(
-                        [
-                            'showroom_id'       => $showroom->id,
-                            'entry_date'        => self::OPENING_DATE,
-                            'cash_account_type' => 'main',
-                            'notes'             => 'Opening balance',
-                        ],
-                        [
-                            'user_id'     => $openingUserId,
-                            'cash_amount' => $config['main_cash'],
-                            'is_locked'   => true,
-                        ],
-                    );
+                    // Opening main-cash entry on OPENING_DATE.
+                    if ($mainOpen != 0) {
+                        DailyCashEntry::updateOrCreate(
+                            [
+                                'showroom_id'       => $showroom->id,
+                                'entry_date'        => self::OPENING_DATE,
+                                'cash_account_type' => 'main',
+                                'notes'             => 'Opening balance',
+                            ],
+                            ['user_id' => $openingUserId, 'cash_amount' => $mainOpen, 'is_locked' => true],
+                        );
+                    }
 
-                    // Record main cash opening balance in Balance Updates.
-                    if ($config['main_cash'] != 0) {
-                        $existing = DB::table('balance_updates')
-                            ->where('showroom_id', $showroom->id)
-                            ->where('account_type', 'main_cash')
-                            ->where('reason', 'Opening balance')
-                            ->first();
-                        $buData = [
-                            'showroom_id'     => $showroom->id,
-                            'account_type'    => 'main_cash',
-                            'card_account_id' => null,
-                            'account_label'   => 'Main Cash',
-                            'previous_amount' => 0,
-                            'new_amount'      => $config['main_cash'],
-                            'change_amount'   => $config['main_cash'],
-                            'reason'          => 'Opening balance',
-                            'user_id'         => $openingUserId,
-                            'created_at'      => self::OPENING_DATE . ' 00:00:00',
-                            'updated_at'      => self::OPENING_DATE . ' 00:00:00',
-                        ];
-                        if ($existing) {
-                            DB::table('balance_updates')->where('id', $existing->id)->update($buData);
-                        } else {
-                            DB::table('balance_updates')->insert($buData);
-                        }
+                    // Delta entry on UPDATE_DATE so the computed total reaches main_now.
+                    if ($mainDelta != 0) {
+                        DailyCashEntry::updateOrCreate(
+                            [
+                                'showroom_id'       => $showroom->id,
+                                'entry_date'        => self::UPDATE_DATE,
+                                'cash_account_type' => 'main',
+                                'notes'             => 'Balance update',
+                            ],
+                            ['user_id' => $openingUserId, 'cash_amount' => $mainDelta, 'is_locked' => true],
+                        );
+                    }
+
+                    // Main-cash balance-update ledger rows (both snapshots).
+                    if ($mainOpen != 0) {
+                        $this->recordBalanceUpdate(
+                            $showroom->id, 'main_cash', null, 'Main Cash',
+                            0, $mainOpen, 'Opening balance', self::OPENING_DATE, $openingUserId,
+                        );
+                    }
+                    if ($mainNow != 0 || $mainOpen != 0) {
+                        $this->recordBalanceUpdate(
+                            $showroom->id, 'main_cash', null, 'Main Cash',
+                            $mainOpen, $mainNow, 'Balance update', self::UPDATE_DATE, $openingUserId,
+                        );
                     }
                 }
             }
         });
+    }
+
+    /**
+     * Idempotently upsert a balance_updates ledger row, keyed by
+     * showroom + account_type + account_label + reason.
+     */
+    private function recordBalanceUpdate(
+        int $showroomId,
+        string $accountType,
+        ?int $cardAccountId,
+        string $label,
+        float $previous,
+        float $new,
+        string $reason,
+        string $date,
+        int $userId,
+    ): void {
+        $match = [
+            'showroom_id'   => $showroomId,
+            'account_type'  => $accountType,
+            'account_label' => $label,
+            'reason'        => $reason,
+        ];
+
+        $row = array_merge($match, [
+            'card_account_id' => $cardAccountId,
+            'previous_amount' => $previous,
+            'new_amount'      => $new,
+            'change_amount'   => round($new - $previous, 2),
+            'user_id'         => $userId,
+            'created_at'      => $date . ' 00:00:00',
+            'updated_at'      => $date . ' 00:00:00',
+        ]);
+
+        $existing = DB::table('balance_updates')->where($match)->first();
+        if ($existing) {
+            DB::table('balance_updates')->where('id', $existing->id)->update($row);
+        } else {
+            DB::table('balance_updates')->insert($row);
+        }
     }
 }

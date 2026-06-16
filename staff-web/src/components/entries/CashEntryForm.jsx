@@ -3,17 +3,28 @@ import toast from 'react-hot-toast'
 import {
   MdCalendarToday,
   MdNotes,
+  MdStore,
 } from 'react-icons/md'
 import api from '../../config/api'
+import { useAuth } from '../../hooks/useAuth'
 import { useFormValidation } from '../../hooks/useFormValidation'
 import { todayString, getDayName, formatCurrency } from '../../utils/formatters'
 import { validateCashEntry } from '../../utils/validators'
 import { ACCOUNT_TYPE_LABELS } from '../../utils/constants'
+import { prioritizeShowrooms } from '../../utils/showroomPriority'
 import LoadingSpinner from '../common/LoadingSpinner'
 
 export default function CashEntryForm({ accountType, onSuccess }) {
+  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [rawAmount, setRawAmount] = useState('')
+
+  // Showrooms assigned to this staff member (multi-showroom support).
+  const assignedShowrooms = prioritizeShowrooms(user?.showrooms || [], 'name')
+  const hasMultipleShowrooms = assignedShowrooms.length > 1
+  const [showroomId, setShowroomId] = useState(
+    hasMultipleShowrooms ? '' : String(assignedShowrooms[0]?.id ?? user?.showroom_id ?? ''),
+  )
 
   const { values, errors, handleChange, setValue, setFieldErrors, runValidation } =
     useFormValidation(
@@ -35,6 +46,11 @@ export default function CashEntryForm({ accountType, onSuccess }) {
       e.preventDefault()
       if (!runValidation()) return
 
+      if (accountType !== 'mano' && hasMultipleShowrooms && !showroomId) {
+        toast.error('Please select a showroom before submitting.')
+        return
+      }
+
       const amount = parseFloat(values.cash_amount)
       if (amount >= 1_000_000) {
         const confirmed = window.confirm(
@@ -50,6 +66,7 @@ export default function CashEntryForm({ accountType, onSuccess }) {
           cash_amount: amount,
           notes: values.notes || null,
           cash_account_type: accountType,
+          ...(accountType !== 'mano' && showroomId ? { showroom_id: Number(showroomId) } : {}),
         })
         toast.success('Cash entry submitted successfully!')
         onSuccess?.()
@@ -70,7 +87,7 @@ export default function CashEntryForm({ accountType, onSuccess }) {
         setSubmitting(false)
       }
     },
-    [values, accountType, runValidation, setFieldErrors, onSuccess],
+    [values, accountType, runValidation, setFieldErrors, onSuccess, hasMultipleShowrooms, showroomId],
   )
 
   const accountLabel = ACCOUNT_TYPE_LABELS[accountType] || 'Account'
@@ -81,6 +98,32 @@ export default function CashEntryForm({ accountType, onSuccess }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      {/* Showroom selector — shown only for multi-showroom staff */}
+      {accountType !== 'mano' && hasMultipleShowrooms && (
+        <div>
+          <label htmlFor="showroom_id" className="form-label">
+            <MdStore className="inline w-4 h-4 mr-1 mb-0.5" />
+            Showroom
+          </label>
+          <select
+            id="showroom_id"
+            value={showroomId}
+            onChange={(e) => setShowroomId(e.target.value)}
+            className={`form-input ${!showroomId ? 'border-error focus:ring-error' : ''}`}
+          >
+            <option value="">Select a showroom…</option>
+            {assignedShowrooms.map((sr) => (
+              <option key={sr.id} value={sr.id}>
+                {sr.name}
+              </option>
+            ))}
+          </select>
+          {!showroomId && (
+            <p className="form-error">Select a showroom before adding an entry.</p>
+          )}
+        </div>
+      )}
+
       {/* Account type badge */}
       <div>
         <span
@@ -166,8 +209,8 @@ export default function CashEntryForm({ accountType, onSuccess }) {
       {/* Submit */}
       <button
         type="submit"
-        disabled={submitting}
-        className="btn-primary w-full py-3 text-base justify-center"
+        disabled={submitting || (accountType !== 'mano' && hasMultipleShowrooms && !showroomId)}
+        className="btn-primary w-full py-3 text-base justify-center disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? <LoadingSpinner size="sm" /> : 'Submit Entry'}
       </button>

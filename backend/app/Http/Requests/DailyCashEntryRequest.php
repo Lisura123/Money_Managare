@@ -24,6 +24,7 @@ class DailyCashEntryRequest extends FormRequest
             'cash_amount'       => [$isUpdate ? 'sometimes' : 'required', 'numeric', 'min:0.01', 'max:99999999.99'],
             'notes'             => ['nullable', 'string', 'max:1000'],
             'cash_account_type' => [$isUpdate ? 'sometimes' : 'required', 'string', 'in:main,mano'],
+            'showroom_id'       => ['sometimes', 'nullable', 'integer', 'exists:showrooms,id'],
         ];
     }
 }

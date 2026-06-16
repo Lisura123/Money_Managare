@@ -22,6 +22,7 @@ export const ENDPOINTS = {
   ADMIN_DASHBOARD_SUMMARY: '/admin/dashboard-summary',
   SHOWROOMS: '/showrooms',
   STAFF: '/staff',
+  ADMINS: '/admins',
   ADMIN_CASH_ENTRIES: '/cash-entries',
   ADMIN_CARD_ENTRIES: '/card-entries',
   ADMIN_EDIT_REQUESTS: '/edit-requests',
@@ -32,6 +33,7 @@ export const ENDPOINTS = {
   CARD_ADJUSTMENTS: '/adjustments/card',
   CARD_ACCOUNTS: '/card-accounts',
   EXTERNAL_ACCOUNTS: '/external-accounts',
+  SHOWROOM_CASH_BALANCES: '/showroom-cash-balances',
   AUDIT_LOGS: '/audit-logs',
   SETTINGS: '/settings',
 }

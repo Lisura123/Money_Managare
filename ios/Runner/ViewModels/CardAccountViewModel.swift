@@ -20,11 +20,14 @@ final class CardAccountViewModel: ObservableObject {
         isLoading = false
     }
 
-    /// Staff endpoint — returns accounts for the staff's own showroom
-    func fetchMyAccounts() async {
+    /// Staff endpoint — returns accounts for the staff's assigned showroom(s).
+    /// Pass `showroomId` to scope to a single assigned showroom.
+    func fetchMyAccounts(showroomId: Int? = nil) async {
         isLoading = true; error = nil
+        var q: [String: Any] = [:]
+        if let s = showroomId { q["showroom_id"] = s }
         do {
-            let result: [CardAccount] = try await api.get("/my-card-accounts")
+            let result: [CardAccount] = try await api.get("/my-card-accounts", query: q)
             accounts = result
         } catch { self.error = error.localizedDescription }
         isLoading = false

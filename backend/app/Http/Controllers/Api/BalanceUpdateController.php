@@ -38,7 +38,9 @@ class BalanceUpdateController extends Controller
             ]);
         }
 
-        $updates = $query->paginate(20);
+        $updates = $query->paginate(
+            (int) $request->input('per_page', 20)
+        );
 
         return BalanceUpdateResource::collection($updates)->toResponse($request);
     }

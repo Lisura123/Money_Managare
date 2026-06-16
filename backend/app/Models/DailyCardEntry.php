@@ -12,7 +12,7 @@ class DailyCardEntry extends Model
     protected $fillable = ['showroom_id', 'user_id', 'card_account_id', 'entry_date', 'amount', 'notes', 'is_locked'];
 
     protected $casts = [
-        'entry_date' => 'date',
+        'entry_date' => 'date:Y-m-d',
         'amount'     => 'decimal:2',
         'is_locked'  => 'boolean',
     ];

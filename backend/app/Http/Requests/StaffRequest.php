@@ -14,11 +14,13 @@ class StaffRequest extends FormRequest
         $isUpdate = $userId !== null;
 
         return [
-            'name'        => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'],
-            'email'       => [$isUpdate ? 'sometimes' : 'required', 'email', 'unique:users,email,' . $userId],
-            'password'    => [$isUpdate ? 'sometimes' : 'required', 'string', 'min:8'],
-            'showroom_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:showrooms,id'],
-            'is_active'   => ['sometimes', 'boolean'],
+            'name'           => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'],
+            'email'          => [$isUpdate ? 'sometimes' : 'required', 'email', 'unique:users,email,' . $userId],
+            'password'       => [$isUpdate ? 'sometimes' : 'required', 'string', 'min:8'],
+            'showroom_id'    => ['sometimes', 'nullable', 'integer', 'exists:showrooms,id'],
+            'showroom_ids'   => ['sometimes', 'nullable', 'array'],
+            'showroom_ids.*' => ['integer', 'exists:showrooms,id'],
+            'is_active'      => ['sometimes', 'boolean'],
         ];
     }
 }

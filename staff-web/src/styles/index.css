@@ -112,6 +112,14 @@
   }
 }
 
+/* Date input calendar icon visibility in dark mode */
+@media (prefers-color-scheme: dark) {
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.6);
+    cursor: pointer;
+  }
+}
+
 /* OTP Input Boxes */
 .otp-input {
   @apply w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/20 transition-all duration-200 bg-white dark:bg-navy dark:border-gray-600 dark:text-white;

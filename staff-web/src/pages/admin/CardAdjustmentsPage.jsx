@@ -42,11 +42,11 @@ function AddModal({ open, onClose, onSaved }) {
   }, [open, fetchAccounts])
 
   const uniqueShowrooms = [...new Set(
-    cardAccounts.map(c => c.showroom_name || c.showroomName || '').filter(Boolean)
+    cardAccounts.map(c => c.showroom?.name || '').filter(Boolean)
   )].sort().sort((a, b) => (isFlagshipShowroom(b) ? 1 : 0) - (isFlagshipShowroom(a) ? 1 : 0))
 
   const filteredAccounts = cardAccounts.filter(
-    c => (c.showroom_name || c.showroomName) === selectedShowroom
+    c => c.showroom?.name === selectedShowroom
   )
 
   const selectedAccount = cardAccounts.find(c => String(c.id) === String(selectedAccountId))

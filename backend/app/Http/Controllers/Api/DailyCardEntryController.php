@@ -26,15 +26,20 @@ class DailyCardEntryController extends Controller
             return response()->json(['message' => 'Entry submission is only allowed during the edit window.'], 422);
         }
 
-        // Ensure the card account belongs to the staff's showroom
-        $cardAccount = CardAccount::where('id', $request->card_account_id)
-            ->where('showroom_id', $user->showroom_id)
-            ->where('is_active', true)
-            ->firstOrFail();
+        // Ensure the card account belongs to one of the staff's assigned showrooms.
+        $allowedShowroomIds = $user->isAdmin()
+            ? null
+            : $user->showrooms()->pluck('showrooms.id')->push($user->showroom_id)->unique()->filter()->values()->all();
+
+        $cardAccountQuery = CardAccount::where('id', $request->card_account_id)->where('is_active', true);
+        if ($allowedShowroomIds !== null) {
+            $cardAccountQuery->whereIn('showroom_id', $allowedShowroomIds);
+        }
+        $cardAccount = $cardAccountQuery->firstOrFail();
 
         $entry = DB::transaction(function () use ($request, $user, $cardAccount) {
             $entry = DailyCardEntry::create([
-                'showroom_id'     => $user->showroom_id,
+                'showroom_id'     => $cardAccount->showroom_id,
                 'user_id'         => $user->id,
                 'card_account_id' => $cardAccount->id,
                 'entry_date'      => $request->entry_date,
@@ -89,7 +94,8 @@ class DailyCardEntryController extends Controller
         // Calculate total across ALL matching entries (not just the current page)
         $totalAmount = (clone $query)->sum('amount');
 
-        $entries  = $query->orderByDesc('entry_date')->paginate(20);
+        $perPage  = min((int) $request->input('per_page', 20), 500);
+        $entries  = $query->orderByDesc('entry_date')->paginate($perPage);
         $response = DailyCardEntryResource::collection($entries)->response()->getData(true);
 
         // Inject total_amount into the existing meta object

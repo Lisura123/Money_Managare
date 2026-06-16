@@ -10,6 +10,14 @@ struct User: Codable, Identifiable {
     let showroomName: String?
     let createdAt: String?
 
+    /// All showrooms this user is assigned to (multi-showroom support).
+    let showrooms: [Showroom]
+    /// Convenience list of assigned showroom IDs.
+    var showroomIds: [Int] { showrooms.map(\.id) }
+    /// True when the staff member is assigned to more than one showroom and
+    /// must therefore pick a showroom before submitting an entry.
+    var hasMultipleShowrooms: Bool { showroomIds.count > 1 }
+
     var isAdmin: Bool { role == "admin" }
     var isStaff: Bool { role == "staff" }
 
@@ -26,6 +34,7 @@ struct User: Codable, Identifiable {
         case isActive     = "is_active"
         case showroomId   = "showroom_id"
         case showroom
+        case showrooms
         case createdAt    = "created_at"
     }
 
@@ -47,6 +56,7 @@ struct User: Codable, Identifiable {
         }
         showroomId   = try? c.decode(Int.self, forKey: .showroomId)
         showroomName = (try? c.decode(ShowroomNested.self, forKey: .showroom))?.name
+        showrooms    = (try? c.decode([Showroom].self, forKey: .showrooms)) ?? []
         createdAt    = try? c.decode(String.self, forKey: .createdAt)
     }
 
@@ -58,6 +68,7 @@ struct User: Codable, Identifiable {
         try c.encode(role,      forKey: .role)
         try c.encode(isActive,  forKey: .isActive)
         try c.encodeIfPresent(showroomId, forKey: .showroomId)
+        try c.encode(showrooms, forKey: .showrooms)
         try c.encodeIfPresent(createdAt,  forKey: .createdAt)
     }
 }

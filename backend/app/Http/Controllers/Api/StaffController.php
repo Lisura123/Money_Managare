@@ -19,7 +19,7 @@ class StaffController extends Controller
 {
     public function index(): JsonResponse
     {
-        $staff = User::where('role', 'staff')->with('showroom')->get();
+        $staff = User::where('role', 'staff')->with('showroom', 'showrooms')->get();
         return UserResource::collection($staff)->toResponse(request());
     }
 
@@ -30,8 +30,15 @@ class StaffController extends Controller
         $data['role']     = 'staff';
         $data['password'] = Hash::make($plainPassword);
 
+        // Resolve the primary showroom_id from showroom_ids if provided.
+        $showroomIds = $data['showroom_ids'] ?? (isset($data['showroom_id']) ? [$data['showroom_id']] : []);
+        $showroomIds = array_values(array_filter(array_unique(array_map('intval', $showroomIds))));
+        $data['showroom_id'] = $showroomIds[0] ?? null;
+        unset($data['showroom_ids']);
+
         $user = User::create($data);
-        $user->load('showroom');
+        $user->showrooms()->sync($showroomIds);
+        $user->load('showroom', 'showrooms');
 
         $showroomName = $user->showroom?->name ?? 'N/A';
         $appUrl       = config('app.url', 'https://moneymanager.app');
@@ -64,7 +71,7 @@ class StaffController extends Controller
     public function show(User $staff): JsonResponse
     {
         abort_if($staff->role !== 'staff', 404);
-        return response()->json(new UserResource($staff->load('showroom')));
+        return response()->json(new UserResource($staff->load('showroom', 'showrooms')));
     }
 
     public function update(StaffRequest $request, User $staff): JsonResponse
@@ -78,7 +85,16 @@ class StaffController extends Controller
             $data['password'] = Hash::make($plainPassword);
         }
 
-        $staff->update($data);
+        // Resolve showroom assignments.
+        if (isset($data['showroom_ids'])) {
+            $showroomIds = array_values(array_filter(array_unique(array_map('intval', $data['showroom_ids']))));
+            $data['showroom_id'] = $showroomIds[0] ?? null;
+            unset($data['showroom_ids']);
+            $staff->update($data);
+            $staff->showrooms()->sync($showroomIds);
+        } else {
+            $staff->update($data);
+        }
 
         if ($plainPassword !== null) {
             try {
@@ -92,7 +108,7 @@ class StaffController extends Controller
             }
         }
 
-        return response()->json(new UserResource($staff->load('showroom')));
+        return response()->json(new UserResource($staff->load('showroom', 'showrooms')));
     }
 
     public function destroy(User $staff): JsonResponse
@@ -134,6 +150,6 @@ class StaffController extends Controller
     {
         abort_if($staff->role !== 'staff', 404);
         $staff->update(['is_active' => ! $staff->is_active]);
-        return response()->json(new UserResource($staff->load('showroom')));
+        return response()->json(new UserResource($staff->load('showroom', 'showrooms')));
     }
 }

@@ -20,23 +20,31 @@ final class StaffViewModel: ObservableObject {
     }
 
     func create(name: String, email: String, password: String,
-                role: String, showroomId: Int?, isActive: Bool) async throws {
+                role: String, showroomIds: [Int], isActive: Bool) async throws {
         isSubmitting = true; defer { isSubmitting = false }
         var body: [String: Any] = [
             "name": name, "email": email,
             "password": password, "role": role, "is_active": isActive
         ]
-        if let s = showroomId { body["showroom_id"] = s }
+        if !showroomIds.isEmpty {
+            body["showroom_ids"] = showroomIds
+            body["showroom_id"]  = showroomIds.first as Any
+        }
         struct CreateResponse: Decodable { let data: User }
         let resp: CreateResponse = try await api.post("/staff", body: body)
         staffList.append(resp.data)
     }
 
-    func update(_ id: Int, name: String, email: String, role: String, showroomId: Int?,
+    func update(_ id: Int, name: String, email: String, role: String, showroomIds: [Int],
                 isActive: Bool, password: String?) async throws {
         isSubmitting = true; defer { isSubmitting = false }
         var body: [String: Any] = ["name": name, "email": email, "role": role, "is_active": isActive]
-        if let s = showroomId { body["showroom_id"] = s }
+        if !showroomIds.isEmpty {
+            body["showroom_ids"] = showroomIds
+            body["showroom_id"]  = showroomIds.first as Any
+        } else {
+            body["showroom_ids"] = [Int]()
+        }
         if let p = password, !p.isEmpty { body["password"] = p }
         let updated: User = try await api.put("/staff/\(id)", body: body)
         if let idx = staffList.firstIndex(where: { $0.id == id }) { staffList[idx] = updated }
@@ -77,7 +85,8 @@ final class StaffViewModel: ObservableObject {
 // Convenience memberwise init for User (not Decodable path)
 extension User {
     init(id: Int, name: String, email: String, role: String,
-         isActive: Bool, showroomId: Int?, showroomName: String?, createdAt: String?) {
+         isActive: Bool, showroomId: Int?, showroomName: String?, createdAt: String?,
+         showrooms: [Showroom] = []) {
         self.id           = id
         self.name         = name
         self.email        = email
@@ -86,5 +95,6 @@ extension User {
         self.showroomId   = showroomId
         self.showroomName = showroomName
         self.createdAt    = createdAt
+        self.showrooms    = showrooms
     }
 }

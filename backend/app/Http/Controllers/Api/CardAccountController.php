@@ -58,12 +58,33 @@ class CardAccountController extends Controller
     }
 
     /**
-     * Staff: list card accounts for their own showroom
+     * Staff: list card accounts for their assigned showroom(s).
+     *
+     * Staff assigned to multiple showrooms get accounts across all of them, or
+     * — when a `showroom_id` query param is supplied and assigned to them — the
+     * accounts for that single showroom.
      */
-    public function myShowroomAccounts(): JsonResponse
+    public function myShowroomAccounts(Request $request): JsonResponse
     {
         $user = auth()->user();
-        $accounts = CardAccount::where('showroom_id', $user->showroom_id)
+
+        // All showrooms this staff member is assigned to (primary + pivot).
+        $assignedIds = $user->showrooms()->pluck('showrooms.id')
+            ->push($user->showroom_id)
+            ->unique()
+            ->filter()
+            ->values();
+
+        $showroomIds = $assignedIds;
+        if ($request->filled('showroom_id')) {
+            $requested = (int) $request->showroom_id;
+            if (! $assignedIds->contains($requested)) {
+                return response()->json(['message' => 'You are not assigned to this showroom.'], 403);
+            }
+            $showroomIds = collect([$requested]);
+        }
+
+        $accounts = CardAccount::whereIn('showroom_id', $showroomIds)
             ->where('is_active', true)
             ->get();
         return CardAccountResource::collection($accounts)->toResponse(request());

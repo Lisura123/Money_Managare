@@ -45,7 +45,7 @@ class AdminCardAdjustmentController extends Controller
      */
     public function all(Request $request): JsonResponse
     {
-        $query = AdminCardAdjustment::with(['admin', 'dailyCardEntry.cardAccount'])
+        $query = AdminCardAdjustment::with(['admin', 'dailyCardEntry.cardAccount.showroom'])
             ->orderByDesc('created_at');
 
         if ($request->filled('card_account_id')) {
@@ -63,7 +63,7 @@ class AdminCardAdjustmentController extends Controller
                 $q->whereBetween('entry_date', [$request->from, $request->to]));
         }
 
-        $adjustments = $query->paginate(20);
+        $adjustments = $query->paginate(min((int) $request->input('per_page', 20), 500));
         return AdminCardAdjustmentResource::collection($adjustments)->toResponse(request());
     }
 
